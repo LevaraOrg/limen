@@ -120,6 +120,63 @@ limen keychain-import   # legt ihn im Schlüsselbund ab
                         # danach die Zeile apiKey: löschen
 ```
 
+## WezTerm
+
+Die Statuszeile oben rechts, die vorher `orca env json` fütterte, wird jetzt von
+`limen json` gefüttert. Gleiche Stelle, gleiche Information, ohne den 15-Sekunden-Cache.
+
+```bash
+make install-wezterm     # symlinkt integrations/wezterm-limen.lua nach ~/.config/wezterm
+```
+
+Dann in `~/.config/wezterm/wezterm.lua`:
+
+```lua
+local limen = require 'wezterm-limen'
+-- WezTerm erbt deinen Shell-PATH nicht. Falls limen dort nicht liegt:
+-- limen.bin = '/Users/du/.local/bin/limen'
+limen.apply(config)
+```
+
+Was gezeichnet wird:
+
+| Stelle | Inhalt |
+|---|---|
+| Tab-Titel | farbiges `label`, Farbe aus `M.palette` |
+| oben rechts | `actor · model · gh:… · gcp:… · gw · !key-in-config` |
+| ohne Kontext | gedimmtes `no limen — limen init` |
+
+Leere Felder entfallen, es bleiben keine Trennzeichen stehen. `gw` erscheint,
+wenn das Projekt über ein lokales Nuncio läuft — dann gehört die Modellroute zum
+Projekt und nicht zur Shell. `!key-in-config` erscheint **nur** bei einem
+Klartextschlüssel in der Datei; ein auflösbarer Schlüssel aus Umgebung oder
+Schlüsselbund ist keine Warnung.
+
+Migration vom Vorgänger: `circles[1]` → `label`, `actor_name` → `actor`,
+`!key-in-repo` → `!key-in-config`. `circles` kam aus dem Organisationsmodell,
+das mit Orca weggefallen ist; `label` ersetzt es und fällt auf den
+Verzeichnisnamen zurück.
+
+Getestet wird das Modul in **WezTerms eigener Lua-Runtime** — einen
+eigenständigen Lua-Interpreter braucht es dafür nicht:
+
+```bash
+make test-wezterm
+```
+
+```
+  ok    module loads
+  ok    apply() is callable from a real config
+  ok    LIMEN-SELFTEST-OK 25 checks passed
+  ok    a broken module is detected (negative control)
+  ok    limen json carries every field the module reads
+  ok    limen json outside a project is {} as the module assumes
+```
+
+Die Negativkontrolle ist Absicht: sie baut ein absichtlich kaputtes Modul und
+verlangt, dass WezTerm das meldet. Ohne sie könnten die Prüfungen darüber
+bestehen, indem nie etwas ausgeführt wird.
+
 ## GitHub-Account mitschalten
 
 Limen ruft `gh auth switch` nicht selbst — ein Werkzeug, das bei jedem `cd`
@@ -143,10 +200,12 @@ die Herkunft als `.orca/ (legacy)` aus. Liegen beide Dateien vor, gewinnt
 ## Tests
 
 ```bash
-make test        # alles
-make test-v      # verbose, zeigt welches Verhalten geprüft wird
-make cover       # Abdeckung
-make bench       # die Messung aus der Tabelle oben, auf deiner Maschine
+make test          # Go-Tests plus das WezTerm-Modul
+make test-go       # nur Go
+make test-wezterm  # nur das Lua-Modul, in WezTerms Runtime
+make test-v        # verbose, zeigt welches Verhalten geprüft wird
+make cover         # Abdeckung
+make bench         # die Messung aus der Tabelle oben, auf deiner Maschine
 ```
 
 **37 Tests, 53 Prüfungen** — Unit-Tests für Parser, Auflösung und Ausgabe, plus
@@ -173,4 +232,9 @@ context.go     Aufwärtssuche, flacher YAML-Parser, Context
 keychain.go    Auflösungsreihenfolge, security(1), injizierbar für Tests
 render.go      show / json / shell / prompt
 commands.go    init, keychain-import, Shell-Hooks
+integrations/
+  wezterm-limen.lua  WezTerm-Statuszeile und Tab-Titel
+  selftest.lua       Prüfungen, die WezTerms Lua-Runtime ausführt
+  test.sh            Testtreiber inklusive Negativkontrolle
+scripts/bench.sh     die Messung
 ```

@@ -3,36 +3,46 @@
 ‹limen› — die Schwelle. Jedes `cd` ist ein Schwellengang; dahinter gilt eine
 andere Identität. Limen sagt welche, und exportiert sie.
 
-Ein Shell-Skript, keine Installation, keine Laufzeitumgebung. Ersetzt
-`orca env` aus dem stillgelegten Orca-Monolithen.
+Ein einzelnes Go-Binary ohne Abhängigkeiten. Ersetzt `orca env` aus dem
+stillgelegten Orca-Monolithen.
 
 ## Warum nicht das alte Werkzeug
 
 Der Nutzen war nie das Problem, die Startzeit war es. `orca env json` brauchte
 auf dieser Maschine **530 ms**, weil jeder Aufruf eine JVM hochfährt — deshalb
 cachte die alte WezTerm-Integration ihr Ergebnis 15 Sekunden lang und lag bei
-jedem Verzeichniswechsel eine Weile daneben. Ein Kontextwerkzeug, das bei
-jedem `cd` läuft, darf das nicht kosten.
+jedem Verzeichniswechsel eine Weile daneben. Ein Kontextwerkzeug, das bei jedem
+`cd` läuft, darf das nicht kosten.
 
-| | pro Verzeichniswechsel |
+Gemessen mit `make bench` (200 Läufe je Zeile, dieselbe Maschine):
+
+| | pro Aufruf |
 |---|---|
-| `orca env json` (JVM) | 530 ms, deshalb 15 s Cache |
-| `limen shell` | **39 ms**, kein Cache nötig |
+| `orca env json` (JVM) | **530 ms**, deshalb 15 s Cache |
+| `limen prompt` | **5,9 ms** |
+| `limen shell`, Schlüssel schon in der Umgebung | **5,6 ms** |
+| `limen shell`, Schlüsselbund-Zugriff | 25,0 ms |
+| `/usr/bin/true` als Vergleich | 3,9 ms |
 
-Die 39 ms sind fast vollständig ein `security(1)`-Aufruf für den
-Schlüsselbund (~22 ms). Ohne Schlüssel im Spiel — etwa `limen prompt` für die
-Statuszeile — sind es **15 ms**.
+Die untere Schranke auf dieser Maschine ist der Prozessstart selbst: 3,9 ms.
+Limens Eigenanteil liegt also bei **rund 1,5 ms**. Die einzige teure Zeile ist
+der Schlüsselbund, und das ist ein `security(1)`-Fork — macOS-Kosten, keine
+Limen-Kosten. Wer den Schlüssel einmal in die Umgebung exportiert, zahlt sie
+nicht.
 
 ## Installation
 
 ```bash
-./install.sh                    # symlinkt bin/limen nach ~/.local/bin
+make install                    # baut und legt nach ~/.local/bin
 eval "$(limen hook zsh)"        # in ~/.zshrc aufnehmen
 ```
 
-Der Hook ruft Limen genau einmal je Verzeichniswechsel. `LIMEN_SEGMENT` kommt
-aus derselben Ausgabe mit, damit die Statuszeile keinen zweiten Prozessstart
-kostet.
+Braucht Go zum Bauen (`brew install go`), danach nichts mehr — das Binary ist
+statisch und trägt keine Laufzeitabhängigkeit.
+
+Der Hook ruft Limen genau **einmal** je Verzeichniswechsel. `LIMEN_SEGMENT`
+kommt aus derselben Ausgabe mit, damit die Statuszeile keinen zweiten
+Prozessstart kostet.
 
 ## Benutzung
 
@@ -43,11 +53,12 @@ limen shell     # export-Zeilen für  eval "$(limen shell)"
 limen prompt    # einzeiliges Segment, berührt den Schlüsselbund nicht
 limen root      # Pfad der Projektwurzel
 limen init      # .limen.yaml anlegen
+limen hook zsh  # Shell-Integration ausgeben
 ```
 
 ## Die Datei
 
-`.limen.yaml` in der Projektwurzel, aufwärts gesucht. Flaches YAML, ein
+`.limen.yaml` in der Projektwurzel, **aufwärts** gesucht. Flaches YAML, ein
 `key: value` je Zeile, alle Felder optional:
 
 ```yaml
@@ -68,9 +79,10 @@ keychainService: limen-anthropic
 keychainAccount:                 # fällt auf actor zurück
 ```
 
-Der Parser nimmt bewusst nur flaches YAML. Ein Kontextdescriptor braucht keine
-Verschachtelung, und ein Parser für mehr wäre der Grund, eine Abhängigkeit zu
-ziehen — womit die Startzeit wieder da wäre, die wir gerade losgeworden sind.
+Der Parser nimmt bewusst nur flaches YAML und bringt keine YAML-Bibliothek mit.
+Ein Kontextdescriptor braucht keine Verschachtelung, und `key: value` je Zeile
+ist in 40 Zeilen gelesen. `githubUser`, `github-user` und `github_user` sind
+dasselbe Feld.
 
 ## Was exportiert wird
 
@@ -86,15 +98,18 @@ ziehen — womit die Startzeit wieder da wäre, die wir gerade losgeworden sind.
 | `ANTHROPIC_BASE_URL` | `gateway` |
 | `ANTHROPIC_API_KEY` | Umgebungsvariable, sonst Schlüsselbund |
 
-Leere Felder werden ausgelassen. Ein Wechsel in ein Projekt ohne `gcloudProject`
-exportiert also keine leere Variable, die `gcloud` dann verwirrt.
+Leere Felder werden ausgelassen. Ein Wechsel in ein Projekt ohne
+`gcloudProject` exportiert also keine leere Variable, die `gcloud` dann
+verwirrt. Werte mit Anführungszeichen werden shell-sicher quotiert; ein Label
+wie `it's fine` übersteht `eval`.
 
 ## Schlüssel
 
 Limen liest den Schlüssel **nie** aus der Konfigurationsdatei. Auflösung:
 `ANTHROPIC_API_KEY` aus der Umgebung, dann der macOS-Schlüsselbund
-(`keychainService` / `keychainAccount`). Nur `limen shell` gibt ihn aus, weil
-das sein Zweck ist — `show`, `json` und `prompt` zeigen ihn nie.
+(`keychainService` / `keychainAccount`, letzteres fällt auf `actor` zurück).
+Nur `limen shell` gibt ihn aus, weil das sein Zweck ist — `show`, `json` und
+`prompt` zeigen ihn nie. Bei `provider != anthropic` wird gar nicht gesucht.
 
 Steht doch ein `apiKey:` in der Datei, wird das als Warnzeichen behandelt:
 `show` warnt, `json` setzt `api_key_in_config: true`, `prompt` hängt
@@ -119,28 +134,43 @@ add-zsh-hook chpwd _limen_gh
 ## Rückwärtskompatibilität
 
 Ohne `.limen.yaml` liest Limen ein vorhandenes `.orca/identity.yaml` plus
-`.orca/config.yaml` und übernimmt `name`, `provider`, `model`, `githubUser`,
-`claudeConfigDir`, `gcloudAccount`, `gcloudProject`. Bestehende Projekte
-funktionieren also ohne Migrationsschritt weiter; `limen show` weist die
-Herkunft als `.orca/ (legacy)` aus.
+`.orca/config.yaml` und übernimmt `name` (als actor), `provider`, `model`,
+`githubUser`, `claudeConfigDir`, `gcloudAccount`, `gcloudProject`. Bestehende
+Projekte funktionieren also ohne Migrationsschritt weiter; `limen show` weist
+die Herkunft als `.orca/ (legacy)` aus. Liegen beide Dateien vor, gewinnt
+`.limen.yaml`.
 
 ## Tests
 
 ```bash
-test/run.sh    # 39 Prüfungen, keine Netz- und keine Schlüsselbundschreibzugriffe
+make test        # alles
+make test-v      # verbose, zeigt welches Verhalten geprüft wird
+make cover       # Abdeckung
+make bench       # die Messung aus der Tabelle oben, auf deiner Maschine
 ```
 
-Geprüft wird unter anderem, dass der Schlüssel nie in `show`, `json` oder
-`prompt` auftaucht, dass leere Felder nicht exportiert werden und dass
-`limen shell` ohne Kontext still bleibt und mit 0 endet — sonst wäre es nicht
-bedingungslos aus einer `.zshrc` aufrufbar.
+**37 Tests, 53 Prüfungen** — Unit-Tests für Parser, Auflösung und Ausgabe, plus
+Integrationstests, die das gebaute Binary in echten Verzeichnissen ausführen.
+Der Schlüsselbund wird nie berührt: die Lookup-Funktion ist injizierbar, und die
+CLI-Tests belegen mit einem `PATH=/nonexistent`, dass `prompt` ohne
+`security(1)` auskommt.
 
-## Warum Bash und nicht Go
+Was die Tests festnageln, weil es das ist, was in einer `.zshrc` weh tut:
 
-Der erste Entwurf war Go, wegen ~2 ms Startzeit und robusterem Parsing. Auf
-dieser Maschine ist keine Go-Toolchain installiert, und ein Artefakt, das
-niemand kompilieren und testen kann, ist kein Artefakt. Die Bash-Fassung
-läuft heute, ist geprüft und hat kein Buildsystem — was zum Anlass des Ganzen
-passt. Sollte sie je in einem Profil auffallen, ist der Go-Port die
-dokumentierte nächste Stufe; die Schnittstelle (`show`/`json`/`shell`/`prompt`)
-ist dafür so gehalten, dass ein Austausch nichts weiter berührt.
+- `limen shell` bleibt ohne Kontext **still** und endet mit **0** — sonst wäre
+  der bedingungslose Aufruf aus einer Startdatei nicht möglich
+- die Ausgabe von `shell` übersteht ein echtes `eval` in `/bin/sh`, inklusive
+  eines Wertes mit Apostroph
+- der Klartextschlüssel taucht in `show`, `json` und `prompt` **nicht** auf
+- der Hook-Text ist syntaktisch gültiges bash bzw. zsh (`bash -n`, `zsh -n`)
+- ein zweites `limen init` überschreibt die Identitätsdatei **nicht**
+
+## Aufbau
+
+```
+main.go        CLI-Verteilung, Exit-Codes
+context.go     Aufwärtssuche, flacher YAML-Parser, Context
+keychain.go    Auflösungsreihenfolge, security(1), injizierbar für Tests
+render.go      show / json / shell / prompt
+commands.go    init, keychain-import, Shell-Hooks
+```

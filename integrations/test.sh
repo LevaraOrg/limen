@@ -86,6 +86,13 @@ fi
 rm -rf "$BROKEN_DIR"
 
 # ---- 4. the real binary produces what the module expects ----
+# Rebuild first when Go is available. Testing whatever binary happens to be
+# lying around would let a renamed field pass because the check ran against a
+# stale build — the exact trap this section exists to catch.
+if command -v go >/dev/null 2>&1; then
+  (cd "$HERE/.." && go build -o limen . 2>/dev/null) \
+    || echo "  note  go build failed; testing the existing binary"
+fi
 LIMEN_BIN="${LIMEN_BIN:-$HERE/../limen}"
 if [[ ! -x "$LIMEN_BIN" ]]; then
   LIMEN_BIN="$(command -v limen 2>/dev/null || true)"

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 const initTemplate = `# limen — Kontext dieses Verzeichnisbaums.
@@ -40,6 +41,53 @@ func CmdInit(w io.Writer, dir string) error {
 		return err
 	}
 	fmt.Fprintf(w, "angelegt: %s\n", target)
+
+	// This file carries per-machine identity — githubUser, claudeConfigDir,
+	// gcloudAccount — and may end up holding an apiKey that someone pasted in.
+	// Committing it leaks one machine's setup into a shared repository, so the
+	// ignore entry is part of creating it, not a separate thing to remember.
+	if err := ignoreLimenFile(w, dir); err != nil {
+		fmt.Fprintf(w, "Hinweis: .gitignore nicht angepasst (%v)\n", err)
+		fmt.Fprintln(w, "Bitte selbst eintragen:  echo .limen.yaml >> .gitignore")
+	}
+	return nil
+}
+
+// ignoreLimenFile adds .limen.yaml to an existing .gitignore. It does not create
+// one: a directory without .gitignore may not be a git repository at all, and
+// planting files there would be presumptuous.
+func ignoreLimenFile(w io.Writer, dir string) error {
+	path := filepath.Join(dir, ".gitignore")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintln(w, "Kein .gitignore hier — .limen.yaml gehört nicht ins Repository:")
+			fmt.Fprintln(w, "  echo .limen.yaml >> .gitignore")
+			return nil
+		}
+		return err
+	}
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.TrimSpace(line) == ".limen.yaml" {
+			fmt.Fprintln(w, ".limen.yaml steht bereits in .gitignore.")
+			return nil
+		}
+	}
+
+	entry := ".limen.yaml\n"
+	if len(body) > 0 && !strings.HasSuffix(string(body), "\n") {
+		entry = "\n" + entry
+	}
+	entry = "\n# limen: maschinenlokale Identität, gehört nicht ins Repository\n" + strings.TrimPrefix(entry, "\n")
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := f.WriteString(entry); err != nil {
+		return err
+	}
+	fmt.Fprintln(w, ".limen.yaml in .gitignore eingetragen.")
 	return nil
 }
 

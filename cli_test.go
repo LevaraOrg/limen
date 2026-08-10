@@ -264,6 +264,60 @@ func TestCLIInitWritesAndRefusesToOverwrite(t *testing.T) {
 	}
 }
 
+func TestCLIInitProtectsTheFileFromBeingCommitted(t *testing.T) {
+	// The file carries per-machine identity and may end up holding a key, so the
+	// ignore entry is part of creating it rather than something to remember.
+	dir := tempDir(t)
+	write(t, filepath.Join(dir, ".gitignore"), "target/\n")
+
+	r := runLimen(t, dir, nil, "init")
+	if r.code != 0 {
+		t.Fatalf("init failed: %s", r.stderr)
+	}
+	if !strings.Contains(r.stdout, "in .gitignore eingetragen") {
+		t.Errorf("init should report the ignore entry:\n%s", r.stdout)
+	}
+	body, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), ".limen.yaml") {
+		t.Errorf(".gitignore lacks the entry:\n%s", body)
+	}
+	if !strings.Contains(string(body), "target/") {
+		t.Error("existing .gitignore content must survive")
+	}
+
+	// Idempotent: a second init in a fresh dir with the entry already present
+	// must not duplicate it.
+	dir2 := tempDir(t)
+	write(t, filepath.Join(dir2, ".gitignore"), "target/\n.limen.yaml\n")
+	r = runLimen(t, dir2, nil, "init")
+	if !strings.Contains(r.stdout, "steht bereits in .gitignore") {
+		t.Errorf("expected the already-present path:\n%s", r.stdout)
+	}
+	body, _ = os.ReadFile(filepath.Join(dir2, ".gitignore"))
+	if strings.Count(string(body), ".limen.yaml") != 1 {
+		t.Errorf("entry duplicated:\n%s", body)
+	}
+}
+
+func TestCLIInitWithoutGitignoreOnlyAdvises(t *testing.T) {
+	// No .gitignore may mean this is not a git repository at all, so planting one
+	// would be presumptuous — say what to do instead.
+	dir := tempDir(t)
+	r := runLimen(t, dir, nil, "init")
+	if r.code != 0 {
+		t.Fatalf("init failed: %s", r.stderr)
+	}
+	if !strings.Contains(r.stdout, "echo .limen.yaml >> .gitignore") {
+		t.Errorf("expected advice, got:\n%s", r.stdout)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".gitignore")); err == nil {
+		t.Error("init must not create a .gitignore")
+	}
+}
+
 func TestCLIHookOutputIsValidShell(t *testing.T) {
 	dir := tempDir(t)
 

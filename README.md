@@ -103,6 +103,21 @@ Leere Felder werden ausgelassen. Ein Wechsel in ein Projekt ohne
 verwirrt. Werte mit Anführungszeichen werden shell-sicher quotiert; ein Label
 wie `it's fine` übersteht `eval`.
 
+## `.limen.yaml` gehört nicht ins Repository
+
+Die Datei trägt maschinenlokale Identität — `githubUser`, `claudeConfigDir`,
+`gcloudAccount` — und kann versehentlich einen `apiKey` enthalten. Eingecheckt
+verteilt sie den Zustand *einer* Maschine an alle.
+
+`limen init` erledigt das mit: existiert eine `.gitignore`, wird `.limen.yaml`
+dort eingetragen (idempotent, vorhandener Inhalt bleibt). Existiert keine, wird
+**keine angelegt** — ein Verzeichnis ohne `.gitignore` ist womöglich gar kein
+Repository — sondern nur gesagt, was zu tun ist:
+
+```bash
+echo .limen.yaml >> .gitignore
+```
+
 ## Schlüssel
 
 Limen liest den Schlüssel **nie** aus der Konfigurationsdatei. Auflösung:
@@ -142,7 +157,7 @@ Was gezeichnet wird:
 
 | Stelle | Inhalt |
 |---|---|
-| Tab-Titel | farbiges `label`, Farbe aus `M.palette` |
+| Tab-Titel | farbiges `label`, Farbe aus `M.palette` (Präfix genügt) |
 | oben rechts | `actor · model · gh:… · gcp:… · gw · !key-in-config` |
 | ohne Kontext | gedimmtes `no limen — limen init` |
 
@@ -151,6 +166,14 @@ wenn das Projekt über ein lokales Nuncio läuft — dann gehört die Modellrout
 Projekt und nicht zur Shell. `!key-in-config` erscheint **nur** bei einem
 Klartextschlüssel in der Datei; ein auflösbarer Schlüssel aus Umgebung oder
 Schlüsselbund ist keine Warnung.
+
+Die Farbe wird zuerst exakt, dann über das **längste passende Präfix** gesucht.
+Das ist nötig, nicht bequem: `label` ist bei Legacy-Projekten der
+Verzeichnisname, also `circlead-platform` statt `circlead` — ohne Präfixsuche
+bekämen alle Projekte dasselbe Standard-Violett, was schlechter wäre als der
+Vorgänger, der nach Circle-Namen färbte. `leviathan` bleibt absichtlich beim
+Standard: es teilt nur „lev" mit `levara` und ist ein anderes Projekt. Eigene
+Einträge in `M.palette` ergänzen.
 
 Migration vom Vorgänger: `circles[1]` → `label`, `actor_name` → `actor`,
 `!key-in-repo` → `!key-in-config`. `circles` kam aus dem Organisationsmodell,
@@ -208,7 +231,7 @@ make cover         # Abdeckung
 make bench         # die Messung aus der Tabelle oben, auf deiner Maschine
 ```
 
-**37 Tests, 53 Prüfungen** — Unit-Tests für Parser, Auflösung und Ausgabe, plus
+**39 Tests** — Unit-Tests für Parser, Auflösung und Ausgabe, plus
 Integrationstests, die das gebaute Binary in echten Verzeichnissen ausführen.
 Der Schlüsselbund wird nie berührt: die Lookup-Funktion ist injizierbar, und die
 CLI-Tests belegen mit einem `PATH=/nonexistent`, dass `prompt` ohne

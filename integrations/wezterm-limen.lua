@@ -40,22 +40,41 @@ local CACHE_TTL_SEC = 1
 
 -- Colours keyed by label. Extend freely; anything unknown gets the default.
 M.palette = {
-  levara   = '#7cb342', -- green
-  tessera  = '#26a69a', -- teal
-  circlead = '#ffa726', -- orange
-  nuncio   = '#42a5f5', -- blue
-  limen    = '#8d6e63', -- brown
-  atrium   = '#ab47bc', -- violet
-  orca     = '#78909c', -- slate, the archive
-  isb      = '#ec407a', -- pink
+  levara     = '#7cb342', -- green
+  tessera    = '#26a69a', -- teal
+  circlead   = '#ffa726', -- orange
+  nuncio     = '#42a5f5', -- blue
+  limen      = '#8d6e63', -- brown
+  atrium     = '#ab47bc', -- violet
+  orca       = '#78909c', -- slate, the archive
+  isb        = '#ec407a', -- pink
+  turbogruen = '#66bb6a', -- green
+  cxo        = '#5c6bc0', -- indigo
+  gcp        = '#ef6c50', -- terracotta
 }
 M.default_color = '#9575cd'
 M.dim_color = '#6c7086'
 
 --- Colour for a context, by its label.
+---
+--- Exact match first, then the longest palette key the label starts with. The
+--- prefix step is not a convenience: the predecessor coloured by the Orca
+--- *circle* name, while `label` defaults to the directory name — so
+--- `circlead-platform` and `levara-website` matched nothing and every project
+--- came out the same default purple, which is worse than what it replaced.
+--- Longest-first so `limen` cannot win over a hypothetical `limen-extra` entry.
 function M.color_for(ctx)
   local label = (ctx and ctx.label or ''):lower()
-  return M.palette[label] or M.default_color
+  if label == '' then return M.default_color end
+  if M.palette[label] then return M.palette[label] end
+
+  local best, best_len = nil, 0
+  for key, colour in pairs(M.palette) do
+    if #key > best_len and label:sub(1, #key) == key then
+      best, best_len = colour, #key
+    end
+  end
+  return best or M.default_color
 end
 
 --- The label shown in the tab, falling back through label -> actor -> 'limen'.

@@ -31,6 +31,27 @@ end
 check('color tessera', limen.color_for({ label = 'tessera' }), limen.palette.tessera)
 check('color case-insensitive', limen.color_for({ label = 'Circlead' }), limen.palette.circlead)
 check('color unknown', limen.color_for({ label = 'whatever' }), limen.default_color)
+
+-- Prefix matching. label defaults to the directory name, so a legacy .orca
+-- project reads as circlead-platform, not circlead — without this every project
+-- came out the same default purple, which is worse than the predecessor.
+check('prefix: circlead-platform', limen.color_for({ label = 'circlead-platform' }),
+  limen.palette.circlead)
+check('prefix: levara-website', limen.color_for({ label = 'levara-website' }),
+  limen.palette.levara)
+check('prefix: turbogruen-skill-library',
+  limen.color_for({ label = 'turbogruen-skill-library' }), limen.palette.turbogruen)
+-- An unrelated name must NOT be dragged in by a partial overlap: leviathan
+-- shares "lev" with levara and must stay on the default.
+check('no false prefix: leviathan', limen.color_for({ label = 'leviathan' }),
+  limen.default_color)
+-- Exact wins over prefix, and the longest prefix wins over a shorter one.
+limen.palette['ab'] = '#111111'
+limen.palette['abcd'] = '#222222'
+check('longest prefix wins', limen.color_for({ label = 'abcdefg' }), '#222222')
+check('exact beats prefix', limen.color_for({ label = 'ab' }), '#111111')
+limen.palette['ab'] = nil
+limen.palette['abcd'] = nil
 check('color no label', limen.color_for({}), limen.default_color)
 check('color nil ctx', limen.color_for(nil), limen.default_color)
 
@@ -124,6 +145,6 @@ check('apply widens tabs', cfg.tab_max_width, 48)
 if #failures > 0 then
   error('LIMEN-SELFTEST-FAIL\n  ' .. table.concat(failures, '\n  '))
 end
-wezterm.log_info('LIMEN-SELFTEST-OK ' .. tostring(25) .. ' checks passed')
+wezterm.log_info('LIMEN-SELFTEST-OK ' .. tostring(31) .. ' checks passed')
 
 return {}

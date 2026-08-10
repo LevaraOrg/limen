@@ -53,6 +53,7 @@ limen shell     # export-Zeilen für  eval "$(limen shell)"
 limen prompt    # einzeiliges Segment, berührt den Schlüsselbund nicht
 limen root      # Pfad der Projektwurzel
 limen init      # .limen.yaml anlegen
+limen migrate   # .limen.yaml aus .orca/ übernehmen, für viele Projekte
 limen hook zsh  # Shell-Integration ausgeben
 ```
 
@@ -228,6 +229,46 @@ Ohne `.limen.yaml` liest Limen ein vorhandenes `.orca/identity.yaml` plus
 Projekte funktionieren also ohne Migrationsschritt weiter; `limen show` weist
 die Herkunft als `.orca/ (legacy)` aus. Liegen beide Dateien vor, gewinnt
 `.limen.yaml`.
+
+### Umstellen mit `limen migrate`
+
+```bash
+limen migrate --dry-run ~/Documents/GitHub/*/   # zeigt nur
+limen migrate ~/Documents/GitHub/*/             # schreibt
+```
+
+Ein vorhandenes `.limen.yaml` wird **nie** überschrieben. Was `migrate` tut,
+hängt daran, was es findet:
+
+| Vorgefunden | Ergebnis |
+|---|---|
+| `.orca/` | alle Felder wörtlich übernommen, die Anzeige bleibt identisch |
+| `.orca/` mit `apiKey` | Schlüssel **nicht** übernommen, dafür ein Hinweis auf `limen keychain-import` |
+| nichts | nur `label` (der Verzeichnisname), Rest leer |
+
+Der Schlüssel wird bewusst nicht mitkopiert: er stünde dann im Klartext in
+*zwei* Dateien statt in keiner.
+
+Geraten wird nichts. Insbesondere wird der Besitzer des `origin`-Remotes **nicht**
+als `githubUser` eingetragen, sondern nur als Kommentar angeboten. Gegen die fünf
+Projekte geprüft, deren echter Wert aus `.orca/` bekannt war, lag er in vier
+daneben: der Remote gehört oft einer Organisation (`LevaraOrg`), dieselbe Person
+nutzt je Projekt verschiedene Konten (`levaraleo`, `tgmatthias`), und bei einem
+Fork ist es jemand ganz anderes (`palamim`). Ein falscher Kontoname in der
+Statuszeile ist schlimmer als keiner — Arbeits- von Privat-Checkout zu
+unterscheiden ist die ganze Aufgabe dieses Feldes.
+
+Dass die Umstellung die Anzeige nicht verändert, prüfst du selbst:
+
+```bash
+for d in ~/Documents/GitHub/*/; do (cd "$d" && printf '%-30s %s\n' "$(basename $d)" "$(limen prompt)"); done > /tmp/vorher.txt
+limen migrate ~/Documents/GitHub/*/
+# dieselbe Schleife nach /tmp/nachher.txt, dann:
+diff /tmp/vorher.txt /tmp/nachher.txt
+```
+
+Erwartet: Projekte mit `.orca/` erscheinen unverändert, Projekte ohne Kontext
+zeigen neu ihr Label. So gemessen am 10.08.2026 über 26 Repositories.
 
 ## Tests
 

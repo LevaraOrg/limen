@@ -302,19 +302,45 @@ func TestCLIInitProtectsTheFileFromBeingCommitted(t *testing.T) {
 	}
 }
 
-func TestCLIInitWithoutGitignoreOnlyAdvises(t *testing.T) {
-	// No .gitignore may mean this is not a git repository at all, so planting one
-	// would be presumptuous — say what to do instead.
+func TestCLIInitWithoutGitignoreUsesGitInfoExclude(t *testing.T) {
+	// Planting a .gitignore would add a tracked file to someone's repository in
+	// order to hide an untracked one. .git/info/exclude does the same job and is
+	// not repository content, so it is used whenever there is a work tree.
+	dir := tempDir(t)
+	if err := exec.Command("git", "-C", dir, "init", "-q").Run(); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	r := runLimen(t, dir, nil, "init")
+	if r.code != 0 {
+		t.Fatalf("init failed: %s", r.stderr)
+	}
+	if !strings.Contains(r.stdout, ".git/info/exclude") {
+		t.Errorf("expected mention of the exclude file, got:\n%s", r.stdout)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".gitignore")); err == nil {
+		t.Error("init must not create a .gitignore")
+	}
+	if err := exec.Command("git", "-C", dir, "check-ignore", "-q", ".limen.yaml").Run(); err != nil {
+		t.Error("git does not consider .limen.yaml ignored")
+	}
+}
+
+func TestCLIInitOutsideAGitRepoSaysThereIsNothingToIgnore(t *testing.T) {
+	// Not a repository, so there is nothing the file could accidentally be
+	// committed to. Advice about .gitignore would be noise.
 	dir := tempDir(t)
 	r := runLimen(t, dir, nil, "init")
 	if r.code != 0 {
 		t.Fatalf("init failed: %s", r.stderr)
 	}
-	if !strings.Contains(r.stdout, "echo .limen.yaml >> .gitignore") {
-		t.Errorf("expected advice, got:\n%s", r.stdout)
+	if !strings.Contains(r.stdout, "Kein Git-Repository") {
+		t.Errorf("expected the no-repository note, got:\n%s", r.stdout)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".gitignore")); err == nil {
-		t.Error("init must not create a .gitignore")
+	for _, unwanted := range []string{".gitignore", "info/exclude"} {
+		if _, err := os.Stat(filepath.Join(dir, unwanted)); err == nil {
+			t.Errorf("created %s outside a repository", unwanted)
+		}
 	}
 }
 

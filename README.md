@@ -109,13 +109,22 @@ Die Datei trägt maschinenlokale Identität — `githubUser`, `claudeConfigDir`,
 `gcloudAccount` — und kann versehentlich einen `apiKey` enthalten. Eingecheckt
 verteilt sie den Zustand *einer* Maschine an alle.
 
-`limen init` erledigt das mit: existiert eine `.gitignore`, wird `.limen.yaml`
-dort eingetragen (idempotent, vorhandener Inhalt bleibt). Existiert keine, wird
-**keine angelegt** — ein Verzeichnis ohne `.gitignore` ist womöglich gar kein
-Repository — sondern nur gesagt, was zu tun ist:
+`limen init` und `limen migrate` erledigen das selbst, in dieser Reihenfolge:
+
+1. Existiert eine `.gitignore`, wird `.limen.yaml` dort eingetragen — idempotent,
+   vorhandener Inhalt bleibt.
+2. Existiert keine, wird **keine angelegt.** Eine `.gitignore` ist eingecheckter
+   Inhalt; eine anzulegen, nur um eine *nicht* eingecheckte Datei zu verstecken,
+   fügt dem Repository etwas hinzu, das nicht dazugehört. Stattdessen bekommt
+   `.git/info/exclude` den Eintrag — dieselbe Wirkung, pro Arbeitskopie, nichts
+   zu committen.
+3. Gibt es kein `.git`, passiert nichts: ohne Repository kann nichts
+   versehentlich eingecheckt werden.
+
+Nachprüfbar ist das mit git selbst, nicht mit einem Blick in die Datei:
 
 ```bash
-echo .limen.yaml >> .gitignore
+git check-ignore -v .limen.yaml
 ```
 
 ## Schlüssel

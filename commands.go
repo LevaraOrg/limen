@@ -61,9 +61,10 @@ func ignoreLimenFile(w io.Writer, dir string) error {
 	body, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Fprintln(w, "Kein .gitignore hier — .limen.yaml gehört nicht ins Repository:")
-			fmt.Fprintln(w, "  echo .limen.yaml >> .gitignore")
-			return nil
+			// No .gitignore to append to. Creating one would add a tracked file
+			// to someone else's repository just to hide a machine-local one, so
+			// use .git/info/exclude instead: same effect, nothing to commit.
+			return excludeLimenFile(w, dir)
 		}
 		return err
 	}
@@ -88,6 +89,50 @@ func ignoreLimenFile(w io.Writer, dir string) error {
 		return err
 	}
 	fmt.Fprintln(w, ".limen.yaml in .gitignore eingetragen.")
+	return nil
+}
+
+// excludeLimenFile hides .limen.yaml via .git/info/exclude — the per-checkout
+// ignore list, which is not part of the repository content.
+//
+// Only reached when there is no .gitignore. Outside a work tree there is nothing
+// to protect against, so a missing .git is not an error.
+func excludeLimenFile(w io.Writer, dir string) error {
+	gitDir := filepath.Join(dir, ".git")
+	st, err := os.Stat(gitDir)
+	if err != nil || !st.IsDir() {
+		fmt.Fprintln(w, "Kein Git-Repository — .limen.yaml braucht keinen Ignore-Eintrag.")
+		return nil
+	}
+
+	path := filepath.Join(gitDir, "info", "exclude")
+	body, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.TrimSpace(line) == ".limen.yaml" {
+			fmt.Fprintln(w, ".limen.yaml steht bereits in .git/info/exclude.")
+			return nil
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	entry := "# limen: maschinenlokale Identität, gehört nicht ins Repository\n.limen.yaml\n"
+	if len(body) > 0 && !strings.HasSuffix(string(body), "\n") {
+		entry = "\n" + entry
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := f.WriteString(entry); err != nil {
+		return err
+	}
+	fmt.Fprintln(w, ".limen.yaml in .git/info/exclude eingetragen (keine .gitignore vorhanden).")
 	return nil
 }
 

@@ -22,6 +22,8 @@ const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
   limen prompt          einzeiliges Segment für RPROMPT / Statuszeile
   limen root            Pfad des Projektwurzelverzeichnisses
   limen init            .limen.yaml im aktuellen Verzeichnis anlegen
+  limen migrate [pfad…] .limen.yaml erzeugen — aus .orca/ übernommen, sonst
+                        aus dem ableitbaren Rest. --dry-run zeigt nur.
   limen keychain-import Klartextschlüssel in den Schlüsselbund verschieben
   limen hook zsh|bash   Shell-Hook zum Einbinden
 
@@ -87,6 +89,22 @@ func run(args []string, stdout, stderr *os.File) int {
 	case "root":
 		if found {
 			fmt.Fprintln(out, ctx.Root)
+		}
+
+	case "migrate":
+		dirs := []string{}
+		dryRun := false
+		for _, a := range args[1:] {
+			if a == "--dry-run" || a == "-n" {
+				dryRun = true
+				continue
+			}
+			dirs = append(dirs, a)
+		}
+		if err := CmdMigrate(out, dirs, dryRun); err != nil {
+			out.Flush()
+			fmt.Fprintf(stderr, "limen: %v\n", err)
+			return 1
 		}
 
 	case "init":

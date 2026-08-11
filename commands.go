@@ -12,6 +12,12 @@ import (
 const initTemplate = `# limen — Kontext dieses Verzeichnisbaums.
 # Flaches YAML: ein key: value je Zeile. Alle Felder sind optional.
 label: %s
+
+# Wofür dieser Baum da ist, in einer Zeile — Agenten ordnen darüber Notizen
+# und Aufgaben zu (limen list, limen note). topics: kommagetrennt.
+purpose:
+topics:
+
 actor:
 githubUser:
 claudeConfigDir:

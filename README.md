@@ -64,6 +64,12 @@ limen hook zsh  # Shell-Integration ausgeben
 
 ```yaml
 label: tessera
+
+# Für Agenten: was in diesem Baum passiert. Darüber ordnet ein Leser von
+# `limen list` eine lose Notiz dem richtigen Verzeichnis zu.
+purpose: Produktstrategie — Rollenerarbeitung und Präsentationen
+topics: design-thinking, customer-journey, rollen
+
 actor: Matthias Wegner
 githubUser: leo81
 claudeConfigDir: ~/.claude-work

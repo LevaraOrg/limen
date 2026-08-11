@@ -33,6 +33,13 @@ type Context struct {
 	Model         string
 	Gateway       string
 
+	// Purpose and Topics are for agents, not for the shell: one line about what
+	// this tree is for, and a comma-separated topic list. They are what lets a
+	// reader of `limen list` match a loose note to the right directory — the
+	// matching itself stays outside the binary.
+	Purpose string
+	Topics  string
+
 	KeychainService string
 	KeychainAccount string
 
@@ -166,6 +173,10 @@ func (c *Context) set(key, val string) {
 		c.Model = val
 	case "gateway":
 		c.Gateway = val
+	case "purpose":
+		c.Purpose = val
+	case "topics":
+		c.Topics = val
 	case "keychainservice":
 		c.KeychainService = val
 	case "keychainaccount":
@@ -201,3 +212,15 @@ func expandTilde(p string) string {
 
 // HasPlaintextKey reports a key sitting in the config file.
 func (c *Context) HasPlaintextKey() bool { return c.PlaintextKey != "" }
+
+// TopicList splits the comma-separated topics field. Always non-nil, so JSON
+// renders [] rather than null and consumers can range over it blindly.
+func (c *Context) TopicList() []string {
+	list := []string{}
+	for _, t := range strings.Split(c.Topics, ",") {
+		if t = strings.TrimSpace(t); t != "" {
+			list = append(list, t)
+		}
+	}
+	return list
+}

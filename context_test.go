@@ -57,6 +57,24 @@ func TestParseLine(t *testing.T) {
 	}
 }
 
+func TestTopicListSplitsAndTrims(t *testing.T) {
+	c := &Context{Topics: " design-thinking , customer-journey ,,rollen "}
+	got := c.TopicList()
+	want := []string{"design-thinking", "customer-journey", "rollen"}
+	if len(got) != len(want) {
+		t.Fatalf("TopicList = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("TopicList = %v, want %v", got, want)
+		}
+	}
+	// Non-nil even when empty, so JSON renders [] rather than null.
+	if empty := (&Context{}).TopicList(); empty == nil || len(empty) != 0 {
+		t.Fatalf("empty TopicList = %#v, want non-nil empty slice", empty)
+	}
+}
+
 func TestDiscoverFindsRootFromNestedDirectory(t *testing.T) {
 	root := t.TempDir()
 	write(t, filepath.Join(root, "proj", ".limen.yaml"), `

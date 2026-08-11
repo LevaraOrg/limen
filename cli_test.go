@@ -84,6 +84,8 @@ func project(t *testing.T, body string) (root, nested string) {
 }
 
 const fullConfig = `label: tessera
+purpose: Produktstrategie — Rollenerarbeitung und Präsentationen
+topics: design-thinking, customer-journey
 actor: Matthias Wegner
 githubUser: leo81
 claudeConfigDir: ~/.claude-work
@@ -122,6 +124,12 @@ func TestCLIJSONIsValidAndComplete(t *testing.T) {
 	}
 	if !strings.Contains(r.stdout, `"api_key_in_config":false`) {
 		t.Errorf("json should report no plaintext key:\n%s", r.stdout)
+	}
+	if !strings.Contains(r.stdout, `"purpose":"Produktstrategie — Rollenerarbeitung und Präsentationen"`) {
+		t.Errorf("json purpose wrong:\n%s", r.stdout)
+	}
+	if !strings.Contains(r.stdout, `"topics":["design-thinking","customer-journey"]`) {
+		t.Errorf("json topics wrong:\n%s", r.stdout)
 	}
 }
 

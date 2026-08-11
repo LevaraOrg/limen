@@ -27,19 +27,21 @@ func Prompt(c *Context) string {
 }
 
 type jsonView struct {
-	Root            string `json:"root"`
-	Label           string `json:"label"`
-	Actor           string `json:"actor"`
-	GithubUser      string `json:"github_user"`
-	ClaudeConfigDir string `json:"claude_config_dir"`
-	GcloudAccount   string `json:"gcloud_account"`
-	GcloudProject   string `json:"gcloud_project"`
-	Provider        string `json:"provider"`
-	Model           string `json:"model"`
-	Gateway         string `json:"gateway"`
-	Source          string `json:"source"`
-	APIKeyPresent   bool   `json:"api_key_present"`
-	APIKeyInConfig  bool   `json:"api_key_in_config"`
+	Root            string   `json:"root"`
+	Label           string   `json:"label"`
+	Actor           string   `json:"actor"`
+	GithubUser      string   `json:"github_user"`
+	ClaudeConfigDir string   `json:"claude_config_dir"`
+	GcloudAccount   string   `json:"gcloud_account"`
+	GcloudProject   string   `json:"gcloud_project"`
+	Provider        string   `json:"provider"`
+	Model           string   `json:"model"`
+	Gateway         string   `json:"gateway"`
+	Purpose         string   `json:"purpose"`
+	Topics          []string `json:"topics"`
+	Source          string   `json:"source"`
+	APIKeyPresent   bool     `json:"api_key_present"`
+	APIKeyInConfig  bool     `json:"api_key_in_config"`
 }
 
 // RenderJSON writes the machine-readable view. Without a context it writes `{}`
@@ -61,6 +63,8 @@ func RenderJSON(w io.Writer, c *Context, r KeyResolver) error {
 		Provider:        c.Provider,
 		Model:           c.Model,
 		Gateway:         c.Gateway,
+		Purpose:         c.Purpose,
+		Topics:          c.TopicList(),
 		Source:          string(c.Source),
 		APIKeyPresent:   present,
 		APIKeyInConfig:  c.HasPlaintextKey(),
@@ -90,6 +94,8 @@ func RenderShow(w io.Writer, c *Context, r KeyResolver) {
 	line("provider", c.Provider)
 	line("model", c.Model)
 	line("gateway", c.Gateway)
+	line("purpose", c.Purpose)
+	line("topics", c.Topics)
 	fmt.Fprintf(w, "api key:      %s\n", KeySource(c, r))
 	if c.Source == SourceOrca {
 		fmt.Fprintln(w, "source:       .orca/ (legacy)")

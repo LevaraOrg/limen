@@ -10,9 +10,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"time"
 )
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
 
@@ -24,6 +25,8 @@ const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
   limen list [--json]   alle registrierten Kontexte dieser Maschine
   limen register [pfad…] Kontext ins Register aufnehmen (der Shell-Hook tut
                         das beim Betreten von selbst)
+  limen note [--at label] "text"
+                        datierte Notiz an LIMEN.md des Kontexts anhängen
   limen init            .limen.yaml im aktuellen Verzeichnis anlegen
   limen migrate [pfad…] .limen.yaml erzeugen — aus .orca/ übernommen, sonst
                         aus dem ableitbaren Rest. --dry-run zeigt nur.
@@ -33,6 +36,9 @@ const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
 Gesucht wird aufwärts nach .limen.yaml, sonst nach einem .orca/-Verzeichnis.
 Ohne Kontext: json gibt {} aus, shell bleibt still, beide mit Exit 0 — damit
 der Aufruf bedingungslos aus einer Shell-Startdatei möglich ist.
+
+.limen.yaml bleibt harte Wahrheit (Identität, Schnittstellen) und wird von
+Werkzeugen nie beschrieben; lose Gedanken sammelt LIMEN.md daneben.
 `
 
 func main() {
@@ -111,6 +117,13 @@ func run(args []string, stdout, stderr *os.File) int {
 
 	case "register":
 		if err := CmdRegister(out, args[1:], cwd); err != nil {
+			out.Flush()
+			fmt.Fprintf(stderr, "limen: %v\n", err)
+			return 1
+		}
+
+	case "note":
+		if err := CmdNote(out, ctxOrNil(ctx, found), found, args[1:], time.Now()); err != nil {
 			out.Flush()
 			fmt.Fprintf(stderr, "limen: %v\n", err)
 			return 1

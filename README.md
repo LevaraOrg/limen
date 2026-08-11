@@ -54,6 +54,7 @@ limen prompt    # einzeiliges Segment, berührt den Schlüsselbund nicht
 limen root      # Pfad der Projektwurzel
 limen list      # alle registrierten Kontexte, --json für Agenten
 limen register  # Kontext ins Register aufnehmen (der Hook tut das von selbst)
+limen note      # datierte Notiz an LIMEN.md anhängen, --at <label> von überall
 limen init      # .limen.yaml anlegen
 limen migrate   # .limen.yaml aus .orca/ übernehmen, für viele Projekte
 limen hook zsh  # Shell-Integration ausgeben
@@ -111,6 +112,50 @@ Leere Felder werden ausgelassen. Ein Wechsel in ein Projekt ohne
 `gcloudProject` exportiert also keine leere Variable, die `gcloud` dann
 verwirrt. Werte mit Anführungszeichen werden shell-sicher quotiert; ein Label
 wie `it's fine` übersteht `eval`.
+
+## Register und Notizen — Kontexte als Ankerpunkte für Agenten
+
+`Discover` sucht nur aufwärts; ein Agent, der eine Sprachnotiz „ergänze Design
+Thinking in der Produktstrategie" zustellen soll, braucht die Gegenrichtung:
+alle Kontexte dieser Maschine. Das ist das Register — eine Zeile je Wurzel in
+`~/.local/state/limen/roots` (bzw. `$XDG_STATE_HOME/limen/roots`). Gefüttert
+wird es vom Shell-Hook: jeder Schwellengang registriert die Wurzel einmalig,
+ohne dass jemand einen Index pflegt. Bäume, die man nie per Shell betritt,
+nimmt `limen register <pfad…>` auf. Verschwundene Wurzeln fallen beim nächsten
+`limen list` still heraus.
+
+```bash
+limen list --json
+# [{"root":"/Users/…/produktstrategie","label":"produktstrategie",
+#   "purpose":"Produktstrategie — …","topics":["design-thinking","…"],
+#   "source":"limen"}]
+```
+
+Die Ausgabe trägt Ort und Bedeutung, nie Identität oder Schlüsselzustand — sie
+ist das Routing-Inventar, nicht die Konfiguration.
+
+Die Arbeitsteilung ist bewusst: **Limen liefert Inventar und Mechanik, das
+Zuordnen bleibt beim Agenten.** Der ruft `limen list --json` auf, matcht die
+Notiz semantisch gegen `purpose`/`topics`, und stellt sie zu:
+
+```bash
+limen note "Kundenbedürfnisse pro Journey-Phase explizit aufschreiben"
+limen note --at produktstrategie "…"    # von überall, über das Register
+```
+
+Das landet datiert in `LIMEN.md` in der Projektwurzel — dem rollierenden
+Freitext-Begleiter der `.limen.yaml`:
+
+```markdown
+## 2026-08-11
+- Kundenbedürfnisse pro Journey-Phase explizit aufschreiben
+```
+
+Die Trennung ist der Punkt: `.limen.yaml` bleibt harte Wahrheit — Identität,
+Schnittstellen, Routing — und wird von Werkzeugen **nie** beschrieben. Lose
+Gedanken, Ideen und Backlog wandern nach `LIMEN.md`, nur angehängt, nie
+umgeschrieben. Und anders als `.limen.yaml` ist `LIMEN.md` Projektinhalt,
+kein Maschinenzustand: sie **gehört** ins Repository.
 
 ## `.limen.yaml` gehört nicht ins Repository
 

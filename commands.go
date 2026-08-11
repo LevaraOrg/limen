@@ -35,12 +35,20 @@ keychainService: limen-anthropic
 keychainAccount:
 `
 
-// CmdInit scaffolds a .limen.yaml. It refuses to overwrite: this file carries
-// per-machine identity and clobbering it silently would be the worst outcome.
+// CmdInit scaffolds .limen/limen.yaml. It refuses to overwrite: this file
+// carries per-machine identity and clobbering it silently would be the worst
+// outcome. A legacy flat .limen.yaml is also a refusal — lifting it is
+// migrate's job, and a second descriptor would leave two truths.
 func CmdInit(w io.Writer, dir string) error {
-	target := filepath.Join(dir, ".limen.yaml")
+	target := filepath.Join(dir, ".limen", "limen.yaml")
 	if _, err := os.Stat(target); err == nil {
 		return fmt.Errorf("%s existiert bereits", target)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".limen.yaml")); err == nil {
+		return fmt.Errorf(".limen.yaml (altes Layout) existiert bereits — `limen migrate` hebt sie nach .limen/")
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".limen"), 0o755); err != nil {
+		return err
 	}
 	body := fmt.Sprintf(initTemplate, filepath.Base(dir))
 	if err := os.WriteFile(target, []byte(body), 0o644); err != nil {
@@ -54,14 +62,19 @@ func CmdInit(w io.Writer, dir string) error {
 	// ignore entry is part of creating it, not a separate thing to remember.
 	if err := ignoreLimenFile(w, dir); err != nil {
 		fmt.Fprintf(w, "Hinweis: .gitignore nicht angepasst (%v)\n", err)
-		fmt.Fprintln(w, "Bitte selbst eintragen:  echo .limen.yaml >> .gitignore")
+		fmt.Fprintln(w, "Bitte selbst eintragen:  echo "+ignoreEntry+" >> .gitignore")
 	}
 	return nil
 }
 
-// ignoreLimenFile adds .limen.yaml to an existing .gitignore. It does not create
-// one: a directory without .gitignore may not be a git repository at all, and
-// planting files there would be presumptuous.
+// ignoreEntry is what goes into .gitignore: only the descriptor. The rest of
+// .limen/ (notes.md, meta.yaml) is project content and belongs in the
+// repository — ignoring the whole directory would hide it.
+const ignoreEntry = ".limen/limen.yaml"
+
+// ignoreLimenFile adds the descriptor to an existing .gitignore. It does not
+// create one: a directory without .gitignore may not be a git repository at
+// all, and planting files there would be presumptuous.
 func ignoreLimenFile(w io.Writer, dir string) error {
 	path := filepath.Join(dir, ".gitignore")
 	body, err := os.ReadFile(path)
@@ -75,13 +88,13 @@ func ignoreLimenFile(w io.Writer, dir string) error {
 		return err
 	}
 	for _, line := range strings.Split(string(body), "\n") {
-		if strings.TrimSpace(line) == ".limen.yaml" {
-			fmt.Fprintln(w, ".limen.yaml steht bereits in .gitignore.")
+		if strings.TrimSpace(line) == ignoreEntry {
+			fmt.Fprintln(w, ignoreEntry+" steht bereits in .gitignore.")
 			return nil
 		}
 	}
 
-	entry := ".limen.yaml\n"
+	entry := ignoreEntry + "\n"
 	if len(body) > 0 && !strings.HasSuffix(string(body), "\n") {
 		entry = "\n" + entry
 	}
@@ -94,12 +107,12 @@ func ignoreLimenFile(w io.Writer, dir string) error {
 	if _, err := f.WriteString(entry); err != nil {
 		return err
 	}
-	fmt.Fprintln(w, ".limen.yaml in .gitignore eingetragen.")
+	fmt.Fprintln(w, ignoreEntry+" in .gitignore eingetragen.")
 	return nil
 }
 
-// excludeLimenFile hides .limen.yaml via .git/info/exclude — the per-checkout
-// ignore list, which is not part of the repository content.
+// excludeLimenFile hides the descriptor via .git/info/exclude — the
+// per-checkout ignore list, which is not part of the repository content.
 //
 // Only reached when there is no .gitignore. Outside a work tree there is nothing
 // to protect against, so a missing .git is not an error.
@@ -107,7 +120,7 @@ func excludeLimenFile(w io.Writer, dir string) error {
 	gitDir := filepath.Join(dir, ".git")
 	st, err := os.Stat(gitDir)
 	if err != nil || !st.IsDir() {
-		fmt.Fprintln(w, "Kein Git-Repository — .limen.yaml braucht keinen Ignore-Eintrag.")
+		fmt.Fprintln(w, "Kein Git-Repository — "+ignoreEntry+" braucht keinen Ignore-Eintrag.")
 		return nil
 	}
 
@@ -117,8 +130,8 @@ func excludeLimenFile(w io.Writer, dir string) error {
 		return err
 	}
 	for _, line := range strings.Split(string(body), "\n") {
-		if strings.TrimSpace(line) == ".limen.yaml" {
-			fmt.Fprintln(w, ".limen.yaml steht bereits in .git/info/exclude.")
+		if strings.TrimSpace(line) == ignoreEntry {
+			fmt.Fprintln(w, ignoreEntry+" steht bereits in .git/info/exclude.")
 			return nil
 		}
 	}
@@ -126,7 +139,7 @@ func excludeLimenFile(w io.Writer, dir string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	entry := "# limen: maschinenlokale Identität, gehört nicht ins Repository\n.limen.yaml\n"
+	entry := "# limen: maschinenlokale Identität, gehört nicht ins Repository\n" + ignoreEntry + "\n"
 	if len(body) > 0 && !strings.HasSuffix(string(body), "\n") {
 		entry = "\n" + entry
 	}
@@ -138,7 +151,7 @@ func excludeLimenFile(w io.Writer, dir string) error {
 	if _, err := f.WriteString(entry); err != nil {
 		return err
 	}
-	fmt.Fprintln(w, ".limen.yaml in .git/info/exclude eingetragen (keine .gitignore vorhanden).")
+	fmt.Fprintln(w, ignoreEntry+" in .git/info/exclude eingetragen (keine .gitignore vorhanden).")
 	return nil
 }
 

@@ -91,7 +91,7 @@ func TestCLIRegisterListsAndPrunesVanishedRoots(t *testing.T) {
 
 	// A vanished descriptor must disappear from the listing and from the
 	// registry file itself — the register describes the machine as it is.
-	if err := os.Remove(filepath.Join(rootB, ".limen.yaml")); err != nil {
+	if err := os.Remove(filepath.Join(rootB, ".limen", "limen.yaml")); err != nil {
 		t.Fatal(err)
 	}
 	r = runLimen(t, tempDir(t), env, "list")

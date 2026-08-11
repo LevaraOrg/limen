@@ -1,10 +1,10 @@
 package main
 
-// LIMEN.md is the rolling free-text companion of .limen.yaml. The YAML stays
-// hard fact — identity, interfaces, routing — and is never appended to by
-// tooling; loose thoughts ("denke bitte an …") land here instead, dated, in
-// order of arrival. Unlike .limen.yaml the file is project content, not
-// machine-local identity, so it belongs in the repository.
+// .limen/notes.md is the rolling free-text companion of the descriptor. The
+// YAML stays hard fact — identity, interfaces, routing — and is never appended
+// to by tooling; loose thoughts ("denke bitte an …") land here instead, dated,
+// in order of arrival. Unlike the descriptor the notes are project content,
+// not machine-local identity, so they belong in the repository.
 
 import (
 	"fmt"
@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 )
-
-const notesName = "LIMEN.md"
 
 // CmdNote appends one dated entry. Without --at it targets the context above
 // the working directory; with --at it routes by label through the registry,
@@ -50,7 +48,7 @@ func CmdNote(w io.Writer, ctx *Context, found bool, args []string, now time.Time
 		return fmt.Errorf("kein Kontext oberhalb des Arbeitsverzeichnisses — Ziel mit --at <label> wählen")
 	}
 
-	path := filepath.Join(target.Root, notesName)
+	path := target.NotesFile()
 	if err := appendNote(path, target.Label, text, now); err != nil {
 		return err
 	}
@@ -112,6 +110,9 @@ func appendNote(path, label, text string, now time.Time) error {
 	}
 	fmt.Fprintf(entry, "- %s\n", text)
 
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
 	if err != nil {
 		return err

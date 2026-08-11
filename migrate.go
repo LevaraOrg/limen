@@ -45,21 +45,27 @@ func remoteOwner(dir string) string {
 	return m[1]
 }
 
-// Migrate writes a .limen.yaml for one directory.
+// Migrate brings one directory to the .limen/ layout.
 //
-// Two sources, in order: an existing .orca/ tree, whose values are carried over
-// verbatim, or — when there is none — the directory name as label and nothing
-// else. Nothing is invented: an empty `model` is better than a guessed one,
-// because the status line would then state something untrue. Even the remote
-// owner only appears as a commented hint; see remoteOwner.
+// Three sources, in order: a flat pre-0.4 .limen.yaml, which is lifted into
+// .limen/ together with its LIMEN.md and LIMEN-META.yaml companions; an
+// existing .orca/ tree, whose values are carried over verbatim; or — when
+// there is neither — the directory name as label and nothing else. Nothing is
+// invented: an empty `model` is better than a guessed one, because the status
+// line would then state something untrue. Even the remote owner only appears
+// as a commented hint; see remoteOwner.
 func Migrate(w io.Writer, dir string, dryRun bool) MigrateResult {
 	res := MigrateResult{Dir: dir}
-	target := filepath.Join(dir, ".limen.yaml")
+	target := filepath.Join(dir, ".limen", "limen.yaml")
 
 	if _, err := os.Stat(target); err == nil {
 		res.Action = "skipped"
-		res.Reason = ".limen.yaml existiert bereits"
+		res.Reason = ".limen/limen.yaml existiert bereits"
 		return res
+	}
+
+	if fileExists(filepath.Join(dir, ".limen.yaml")) {
+		return liftFlatLayout(dir, dryRun)
 	}
 
 	// Only this directory, not an inherited one from a parent: migrating a
@@ -119,6 +125,11 @@ func Migrate(w io.Writer, dir string, dryRun bool) MigrateResult {
 		res.Action = "would-write"
 		return res
 	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		res.Action = "skipped"
+		res.Reason = err.Error()
+		return res
+	}
 	if err := os.WriteFile(target, []byte(b.String()), 0o644); err != nil {
 		res.Action = "skipped"
 		res.Reason = err.Error()
@@ -129,6 +140,86 @@ func Migrate(w io.Writer, dir string, dryRun bool) MigrateResult {
 		res.Warning = strings.TrimSpace(res.Warning + " .gitignore nicht angepasst: " + err.Error())
 	}
 	return res
+}
+
+// liftFlatLayout moves a pre-0.4 flat layout into .limen/: the descriptor, the
+// notes and the meta file travel together, and the ignore entry is retargeted.
+// Contents are moved verbatim — a layout migration must not edit anything.
+func liftFlatLayout(dir string, dryRun bool) MigrateResult {
+	res := MigrateResult{Dir: dir}
+	moves := [][2]string{{".limen.yaml", filepath.Join(".limen", "limen.yaml")}}
+	if fileExists(filepath.Join(dir, "LIMEN.md")) {
+		moves = append(moves, [2]string{"LIMEN.md", filepath.Join(".limen", "notes.md")})
+	}
+	if fileExists(filepath.Join(dir, "LIMEN-META.yaml")) {
+		moves = append(moves, [2]string{"LIMEN-META.yaml", filepath.Join(".limen", "meta.yaml")})
+	}
+
+	names := make([]string, len(moves))
+	for i, m := range moves {
+		names[i] = m[0]
+	}
+	res.Reason = "gehoben nach .limen/: " + strings.Join(names, ", ")
+	res.Fields = len(moves)
+	if dryRun {
+		res.Action = "would-write"
+		return res
+	}
+
+	if err := os.MkdirAll(filepath.Join(dir, ".limen"), 0o755); err != nil {
+		res.Action = "skipped"
+		res.Reason = err.Error()
+		return res
+	}
+	for _, m := range moves {
+		if err := os.Rename(filepath.Join(dir, m[0]), filepath.Join(dir, m[1])); err != nil {
+			res.Action = "skipped"
+			res.Reason = m[0] + ": " + err.Error()
+			return res
+		}
+	}
+	res.Action = "written"
+	if warn := retargetIgnore(dir); warn != "" {
+		res.Warning = warn
+	}
+	return res
+}
+
+// retargetIgnore rewrites the old `.limen.yaml` ignore line to the new
+// descriptor path — in .gitignore and .git/info/exclude, whichever carries it.
+// When neither does, the normal init path adds a fresh entry.
+func retargetIgnore(dir string) (warning string) {
+	replaced := false
+	for _, p := range []string{
+		filepath.Join(dir, ".gitignore"),
+		filepath.Join(dir, ".git", "info", "exclude"),
+	} {
+		body, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		lines := strings.Split(string(body), "\n")
+		changed := false
+		for i, l := range lines {
+			if strings.TrimSpace(l) == ".limen.yaml" {
+				lines[i] = ignoreEntry
+				changed = true
+			}
+		}
+		if !changed {
+			continue
+		}
+		if err := os.WriteFile(p, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+			return "Ignore-Eintrag nicht angepasst: " + err.Error()
+		}
+		replaced = true
+	}
+	if !replaced {
+		if err := ignoreLimenFile(io.Discard, dir); err != nil {
+			return ".gitignore nicht angepasst: " + err.Error()
+		}
+	}
+	return ""
 }
 
 // CmdMigrate runs Migrate over the given directories and prints one line each.
@@ -153,13 +244,17 @@ func CmdMigrate(w io.Writer, dirs []string, dryRun bool) error {
 			continue
 		}
 		r := Migrate(w, abs, dryRun)
+		detail := fmt.Sprintf("%d Felder", r.Fields)
+		if r.Reason != "" {
+			detail = r.Reason
+		}
 		switch r.Action {
 		case "written":
 			written++
-			fmt.Fprintf(w, "  +  %-32s %d Felder\n", filepath.Base(abs), r.Fields)
+			fmt.Fprintf(w, "  +  %-32s %s\n", filepath.Base(abs), detail)
 		case "would-write":
 			written++
-			fmt.Fprintf(w, "  ~  %-32s %d Felder (dry-run)\n", filepath.Base(abs), r.Fields)
+			fmt.Fprintf(w, "  ~  %-32s %s (dry-run)\n", filepath.Base(abs), detail)
 		default:
 			skipped++
 			fmt.Fprintf(w, "  =  %-32s %s\n", filepath.Base(abs), r.Reason)

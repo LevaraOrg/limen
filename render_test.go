@@ -167,7 +167,7 @@ func TestRenderShowIncludesTheWarningAndNotTheKey(t *testing.T) {
 	if !strings.Contains(out, "Klartextschlüssel") {
 		t.Error("show must warn about a key in the config")
 	}
-	if !strings.Contains(out, "source:       .limen.yaml") {
+	if !strings.Contains(out, "source:       .limen/limen.yaml") {
 		t.Error("show must name the source")
 	}
 }

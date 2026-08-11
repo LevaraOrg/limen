@@ -97,10 +97,13 @@ func RenderShow(w io.Writer, c *Context, r KeyResolver) {
 	line("purpose", c.Purpose)
 	line("topics", c.Topics)
 	fmt.Fprintf(w, "api key:      %s\n", KeySource(c, r))
-	if c.Source == SourceOrca {
+	switch {
+	case c.Source == SourceOrca:
 		fmt.Fprintln(w, "source:       .orca/ (legacy)")
-	} else {
-		fmt.Fprintln(w, "source:       .limen.yaml")
+	case c.flatFile:
+		fmt.Fprintln(w, "source:       .limen.yaml (alt — `limen migrate` hebt nach .limen/)")
+	default:
+		fmt.Fprintln(w, "source:       .limen/limen.yaml")
 	}
 	if c.HasPlaintextKey() {
 		fmt.Fprintln(w, "\nWarnung: ein Klartextschlüssel steht noch in der Konfiguration.")

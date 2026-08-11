@@ -54,16 +54,28 @@ limen prompt    # einzeiliges Segment, berührt den Schlüsselbund nicht
 limen root      # Pfad der Projektwurzel
 limen list      # alle registrierten Kontexte, --json für Agenten
 limen register  # Kontext ins Register aufnehmen (der Hook tut das von selbst)
-limen note      # datierte Notiz an LIMEN.md anhängen, --at <label> von überall
-limen init      # .limen.yaml anlegen
-limen migrate   # .limen.yaml aus .orca/ übernehmen, für viele Projekte
+limen note      # datierte Notiz an .limen/notes.md anhängen, --at <label> von überall
+limen init      # .limen/limen.yaml anlegen
+limen migrate   # aufs .limen/-Layout heben (flache .limen.yaml, .orca/), für viele Projekte
 limen hook zsh  # Shell-Integration ausgeben
 ```
 
-## Die Datei
+## Das Verzeichnis
 
-`.limen.yaml` in der Projektwurzel, **aufwärts** gesucht. Flaches YAML, ein
-`key: value` je Zeile, alle Felder optional:
+Alles Limen-Eigene liegt in **`.limen/`** in der Projektwurzel, **aufwärts**
+gesucht:
+
+| Datei | Inhalt | Git |
+|---|---|---|
+| `.limen/limen.yaml` | der Deskriptor (unten) | ignoriert — maschinenlokal |
+| `.limen/notes.md` | rollierende, datierte Notizen (`limen note`) | committen |
+| `.limen/meta.yaml` | harte Kontextfakten (Bounded-Context-Schema) | committen |
+
+Eine flache `.limen.yaml` aus früheren Versionen wird weiter gelesen;
+`limen migrate` hebt sie samt `LIMEN.md`/`LIMEN-META.yaml` nach `.limen/`.
+
+Der Deskriptor ist flaches YAML, ein `key: value` je Zeile, alle Felder
+optional:
 
 ```yaml
 label: tessera
@@ -143,30 +155,33 @@ limen note "Kundenbedürfnisse pro Journey-Phase explizit aufschreiben"
 limen note --at produktstrategie "…"    # von überall, über das Register
 ```
 
-Das landet datiert in `LIMEN.md` in der Projektwurzel — dem rollierenden
-Freitext-Begleiter der `.limen.yaml`:
+Das landet datiert in `.limen/notes.md` — dem rollierenden Freitext-Begleiter
+des Deskriptors:
 
 ```markdown
 ## 2026-08-11
 - Kundenbedürfnisse pro Journey-Phase explizit aufschreiben
 ```
 
-Die Trennung ist der Punkt: `.limen.yaml` bleibt harte Wahrheit — Identität,
+Die Trennung ist der Punkt: der Deskriptor bleibt harte Wahrheit — Identität,
 Schnittstellen, Routing — und wird von Werkzeugen **nie** beschrieben. Lose
-Gedanken, Ideen und Backlog wandern nach `LIMEN.md`, nur angehängt, nie
-umgeschrieben. Und anders als `.limen.yaml` ist `LIMEN.md` Projektinhalt,
-kein Maschinenzustand: sie **gehört** ins Repository.
+Gedanken, Ideen und Backlog wandern nach `.limen/notes.md`, nur angehängt, nie
+umgeschrieben. Und anders als der Deskriptor sind `notes.md` und `meta.yaml`
+Projektinhalt, kein Maschinenzustand: sie **gehören** ins Repository.
 
-## `.limen.yaml` gehört nicht ins Repository
+## `.limen/limen.yaml` gehört nicht ins Repository
 
-Die Datei trägt maschinenlokale Identität — `githubUser`, `claudeConfigDir`,
-`gcloudAccount` — und kann versehentlich einen `apiKey` enthalten. Eingecheckt
-verteilt sie den Zustand *einer* Maschine an alle.
+Der Deskriptor trägt maschinenlokale Identität — `githubUser`,
+`claudeConfigDir`, `gcloudAccount` — und kann versehentlich einen `apiKey`
+enthalten. Eingecheckt verteilt er den Zustand *einer* Maschine an alle.
+Ignoriert wird deshalb **nur die Datei**, nie das ganze `.limen/`-Verzeichnis —
+`notes.md` und `meta.yaml` sollen ja committet werden.
 
 `limen init` und `limen migrate` erledigen das selbst, in dieser Reihenfolge:
 
-1. Existiert eine `.gitignore`, wird `.limen.yaml` dort eingetragen — idempotent,
-   vorhandener Inhalt bleibt.
+1. Existiert eine `.gitignore`, wird `.limen/limen.yaml` dort eingetragen —
+   idempotent, vorhandener Inhalt bleibt; `migrate` biegt einen alten
+   `.limen.yaml`-Eintrag auf den neuen Pfad um.
 2. Existiert keine, wird **keine angelegt.** Eine `.gitignore` ist eingecheckter
    Inhalt; eine anzulegen, nur um eine *nicht* eingecheckte Datei zu verstecken,
    fügt dem Repository etwas hinzu, das nicht dazugehört. Stattdessen bekommt
@@ -178,7 +193,7 @@ verteilt sie den Zustand *einer* Maschine an alle.
 Nachprüfbar ist das mit git selbst, nicht mit einem Blick in die Datei:
 
 ```bash
-git check-ignore -v .limen.yaml
+git check-ignore -v .limen/limen.yaml
 ```
 
 ## Schlüssel

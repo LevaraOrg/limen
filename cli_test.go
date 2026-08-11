@@ -84,11 +84,11 @@ func tempDir(t *testing.T) string {
 	return dir
 }
 
-// project lays out a .limen.yaml tree and returns the nested working directory.
+// project lays out a .limen/ tree and returns the nested working directory.
 func project(t *testing.T, body string) (root, nested string) {
 	t.Helper()
 	root = tempDir(t)
-	write(t, filepath.Join(root, ".limen.yaml"), body)
+	write(t, filepath.Join(root, ".limen", "limen.yaml"), body)
 	nested = filepath.Join(root, "a", "b")
 	if err := os.MkdirAll(nested, 0o755); err != nil {
 		t.Fatal(err)
@@ -116,10 +116,28 @@ func TestCLIShowFromNestedDirectory(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("exit %d, stderr: %s", r.code, r.stderr)
 	}
-	for _, want := range []string{root, "tessera", "leo81", "my-project-123", ".limen.yaml"} {
+	for _, want := range []string{root, "tessera", "leo81", "my-project-123", ".limen/limen.yaml"} {
 		if !strings.Contains(r.stdout, want) {
 			t.Errorf("show output missing %q:\n%s", want, r.stdout)
 		}
+	}
+}
+
+func TestCLIFlatLegacyLayoutStillLoads(t *testing.T) {
+	// The pre-0.4 flat layout keeps working until `limen migrate` lifts it;
+	// its notes stay next to it in the root so both move together later.
+	root := tempDir(t)
+	write(t, filepath.Join(root, ".limen.yaml"), fullConfig)
+
+	r := runLimen(t, root, nil, "show")
+	if r.code != 0 || !strings.Contains(r.stdout, "limen migrate") {
+		t.Errorf("show should load the flat layout and point at migrate:\n%s", r.stdout)
+	}
+	if r := runLimen(t, root, nil, "note", "alte Welt"); r.code != 0 {
+		t.Fatalf("note exit %d: %s", r.code, r.stderr)
+	}
+	if _, err := os.Stat(filepath.Join(root, "LIMEN.md")); err != nil {
+		t.Error("flat layout must keep its notes in the root LIMEN.md")
 	}
 }
 
@@ -273,8 +291,8 @@ func TestCLIInitWritesAndRefusesToOverwrite(t *testing.T) {
 	if r := runLimen(t, dir, nil, "init"); r.code != 0 {
 		t.Fatalf("init failed: %s", r.stderr)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".limen.yaml")); err != nil {
-		t.Fatal(".limen.yaml was not created")
+	if _, err := os.Stat(filepath.Join(dir, ".limen", "limen.yaml")); err != nil {
+		t.Fatal(".limen/limen.yaml was not created")
 	}
 	// The scaffold must be readable by limen itself.
 	if r := runLimen(t, dir, nil, "show"); r.code != 0 {
@@ -302,7 +320,7 @@ func TestCLIInitProtectsTheFileFromBeingCommitted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(body), ".limen.yaml") {
+	if !strings.Contains(string(body), ".limen/limen.yaml") {
 		t.Errorf(".gitignore lacks the entry:\n%s", body)
 	}
 	if !strings.Contains(string(body), "target/") {
@@ -312,13 +330,13 @@ func TestCLIInitProtectsTheFileFromBeingCommitted(t *testing.T) {
 	// Idempotent: a second init in a fresh dir with the entry already present
 	// must not duplicate it.
 	dir2 := tempDir(t)
-	write(t, filepath.Join(dir2, ".gitignore"), "target/\n.limen.yaml\n")
+	write(t, filepath.Join(dir2, ".gitignore"), "target/\n.limen/limen.yaml\n")
 	r = runLimen(t, dir2, nil, "init")
 	if !strings.Contains(r.stdout, "steht bereits in .gitignore") {
 		t.Errorf("expected the already-present path:\n%s", r.stdout)
 	}
 	body, _ = os.ReadFile(filepath.Join(dir2, ".gitignore"))
-	if strings.Count(string(body), ".limen.yaml") != 1 {
+	if strings.Count(string(body), ".limen/limen.yaml") != 1 {
 		t.Errorf("entry duplicated:\n%s", body)
 	}
 }
@@ -342,8 +360,8 @@ func TestCLIInitWithoutGitignoreUsesGitInfoExclude(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".gitignore")); err == nil {
 		t.Error("init must not create a .gitignore")
 	}
-	if err := exec.Command("git", "-C", dir, "check-ignore", "-q", ".limen.yaml").Run(); err != nil {
-		t.Error("git does not consider .limen.yaml ignored")
+	if err := exec.Command("git", "-C", dir, "check-ignore", "-q", ".limen/limen.yaml").Run(); err != nil {
+		t.Error("git does not consider .limen/limen.yaml ignored")
 	}
 }
 

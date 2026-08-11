@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const version = "0.3.0"
+const version = "0.4.0"
 
 const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
 
@@ -26,19 +26,22 @@ const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
   limen register [pfad…] Kontext ins Register aufnehmen (der Shell-Hook tut
                         das beim Betreten von selbst)
   limen note [--at label] "text"
-                        datierte Notiz an LIMEN.md des Kontexts anhängen
-  limen init            .limen.yaml im aktuellen Verzeichnis anlegen
-  limen migrate [pfad…] .limen.yaml erzeugen — aus .orca/ übernommen, sonst
-                        aus dem ableitbaren Rest. --dry-run zeigt nur.
+                        datierte Notiz an .limen/notes.md anhängen
+  limen init            .limen/limen.yaml im aktuellen Verzeichnis anlegen
+  limen migrate [pfad…] aufs .limen/-Layout bringen — hebt flache .limen.yaml
+                        samt LIMEN.md/LIMEN-META.yaml hoch, übernimmt .orca/,
+                        legt sonst neu an. --dry-run zeigt nur.
   limen keychain-import Klartextschlüssel in den Schlüsselbund verschieben
   limen hook zsh|bash   Shell-Hook zum Einbinden
 
-Gesucht wird aufwärts nach .limen.yaml, sonst nach einem .orca/-Verzeichnis.
-Ohne Kontext: json gibt {} aus, shell bleibt still, beide mit Exit 0 — damit
-der Aufruf bedingungslos aus einer Shell-Startdatei möglich ist.
+Gesucht wird aufwärts nach .limen/limen.yaml, dann nach flacher .limen.yaml
+(altes Layout), dann nach .orca/. Ohne Kontext: json gibt {} aus, shell bleibt
+still, beide mit Exit 0 — damit der Aufruf bedingungslos aus einer
+Shell-Startdatei möglich ist.
 
-.limen.yaml bleibt harte Wahrheit (Identität, Schnittstellen) und wird von
-Werkzeugen nie beschrieben; lose Gedanken sammelt LIMEN.md daneben.
+Alles Limen-Eigene liegt in .limen/: limen.yaml ist der Deskriptor (harte
+Wahrheit, wird von Werkzeugen nie beschrieben, maschinenlokal), notes.md
+sammelt lose Gedanken, meta.yaml die harten Kontextfakten.
 `
 
 func main() {

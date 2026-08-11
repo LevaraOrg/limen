@@ -19,9 +19,9 @@ func TestCLINoteAppendsUnderOneDateHeading(t *testing.T) {
 	}
 	runLimen(t, nested, nil, "note", "zweiter Gedanke")
 
-	body, err := os.ReadFile(filepath.Join(root, "LIMEN.md"))
+	body, err := os.ReadFile(filepath.Join(root, ".limen", "notes.md"))
 	if err != nil {
-		t.Fatal("LIMEN.md was not created:", err)
+		t.Fatal(".limen/notes.md was not created:", err)
 	}
 	text := string(body)
 	today := time.Now().Format("2006-01-02")
@@ -43,11 +43,11 @@ func TestCLINoteAppendsUnderOneDateHeading(t *testing.T) {
 
 func TestCLINoteOpensANewHeadingWhenTheDayChanged(t *testing.T) {
 	root, nested := project(t, fullConfig)
-	write(t, filepath.Join(root, "LIMEN.md"),
+	write(t, filepath.Join(root, ".limen", "notes.md"),
 		"# LIMEN — rollierende Notizen zu tessera\n\n## 2001-01-01\n- alter Eintrag\n")
 
 	runLimen(t, nested, nil, "note", "neuer Eintrag")
-	body, _ := os.ReadFile(filepath.Join(root, "LIMEN.md"))
+	body, _ := os.ReadFile(filepath.Join(root, ".limen", "notes.md"))
 	text := string(body)
 	today := time.Now().Format("2006-01-02")
 	if !strings.Contains(text, "## "+today) {
@@ -68,7 +68,7 @@ func TestCLINoteRoutesByLabelFromAnywhere(t *testing.T) {
 	if r := runLimen(t, tempDir(t), env, "note", "--at", "TESSERA", "aus der Ferne"); r.code != 0 {
 		t.Fatalf("note --at exit %d: %s", r.code, r.stderr)
 	}
-	body, err := os.ReadFile(filepath.Join(root, "LIMEN.md"))
+	body, err := os.ReadFile(filepath.Join(root, ".limen", "notes.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

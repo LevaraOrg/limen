@@ -43,6 +43,11 @@ type Context struct {
 	KeychainService string
 	KeychainAccount string
 
+	// flatFile marks the pre-0.4 layout: a single .limen.yaml in the root
+	// instead of the .limen/ directory. Still read so nothing breaks before
+	// `limen migrate` lifts it; notes stay next to it (see NotesFile).
+	flatFile bool
+
 	// PlaintextKey holds a key found in the config file. It is never rendered;
 	// its presence is reported as a warning, because a key in a committed file
 	// is a defect rather than a feature.
@@ -56,8 +61,14 @@ var keyPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*$`)
 // the command, so the search direction is up, not down.
 func Discover(dir string) (*Context, bool) {
 	for {
-		if fileExists(filepath.Join(dir, ".limen.yaml")) {
+		if fileExists(filepath.Join(dir, ".limen", "limen.yaml")) {
 			ctx := &Context{Root: dir, Source: SourceLimen}
+			ctx.applyFile(filepath.Join(dir, ".limen", "limen.yaml"))
+			ctx.finish()
+			return ctx, true
+		}
+		if fileExists(filepath.Join(dir, ".limen.yaml")) {
+			ctx := &Context{Root: dir, Source: SourceLimen, flatFile: true}
 			ctx.applyFile(filepath.Join(dir, ".limen.yaml"))
 			ctx.finish()
 			return ctx, true
@@ -212,6 +223,16 @@ func expandTilde(p string) string {
 
 // HasPlaintextKey reports a key sitting in the config file.
 func (c *Context) HasPlaintextKey() bool { return c.PlaintextKey != "" }
+
+// NotesFile is where `limen note` appends. The .limen/ layout keeps everything
+// in one place; a legacy flat descriptor keeps its notes next to it in the
+// root, so `limen migrate` moves descriptor and notes together.
+func (c *Context) NotesFile() string {
+	if c.Source == SourceLimen && !c.flatFile {
+		return filepath.Join(c.Root, ".limen", "notes.md")
+	}
+	return filepath.Join(c.Root, "LIMEN.md")
+}
 
 // TopicList splits the comma-separated topics field. Always non-nil, so JSON
 // renders [] rather than null and consumers can range over it blindly.

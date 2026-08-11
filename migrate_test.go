@@ -23,7 +23,7 @@ func TestMigrateCarriesEveryFieldFromOrca(t *testing.T) {
 		t.Fatalf("action = %q, reason %q", r.Action, r.Reason)
 	}
 
-	body, err := os.ReadFile(filepath.Join(dir, ".limen.yaml"))
+	body, err := os.ReadFile(filepath.Join(dir, ".limen", "limen.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestMigrateCarriesEveryFieldFromOrca(t *testing.T) {
 	// from — otherwise the status line changes at the moment of migration.
 	before, _ := Discover(dir)
 	if before.Source != SourceLimen {
-		t.Fatalf("after migrating, Discover should prefer .limen.yaml, got %q", before.Source)
+		t.Fatalf("after migrating, Discover should prefer .limen/, got %q", before.Source)
 	}
 	if before.Actor != "Matthias" || before.GithubUser != "tgmatthias" ||
 		before.Model != "claude-opus-4-5" || before.GcloudProject != "p-1" {
@@ -61,7 +61,7 @@ func TestMigrateNeverCopiesAPlaintextKey(t *testing.T) {
 
 	var out bytes.Buffer
 	r := Migrate(&out, dir, false)
-	body, _ := os.ReadFile(filepath.Join(dir, ".limen.yaml"))
+	body, _ := os.ReadFile(filepath.Join(dir, ".limen", "limen.yaml"))
 	if strings.Contains(string(body), "SECRETVALUE") {
 		t.Fatal("the key was copied into the new file")
 	}
@@ -76,7 +76,7 @@ func TestMigrateWithoutOrcaWritesOnlyALabel(t *testing.T) {
 	if r := Migrate(&out, dir, false); r.Action != "written" {
 		t.Fatalf("action = %q", r.Action)
 	}
-	body, _ := os.ReadFile(filepath.Join(dir, ".limen.yaml"))
+	body, _ := os.ReadFile(filepath.Join(dir, ".limen", "limen.yaml"))
 	got := string(body)
 	if !strings.Contains(got, "label: "+filepath.Base(dir)) {
 		t.Errorf("label missing:\n%s", got)
@@ -105,7 +105,7 @@ func TestMigrateOffersTheRemoteOwnerOnlyAsAComment(t *testing.T) {
 
 	var out bytes.Buffer
 	Migrate(&out, dir, false)
-	body, _ := os.ReadFile(filepath.Join(dir, ".limen.yaml"))
+	body, _ := os.ReadFile(filepath.Join(dir, ".limen", "limen.yaml"))
 	got := string(body)
 
 	if strings.Contains(got, "\ngithubUser: LevaraOrg") {
@@ -126,16 +126,87 @@ func TestMigrateOffersTheRemoteOwnerOnlyAsAComment(t *testing.T) {
 
 func TestMigrateIsIdempotentAndNeverOverwrites(t *testing.T) {
 	dir := t.TempDir()
-	write(t, filepath.Join(dir, ".limen.yaml"), "label: handgeschrieben\n")
+	write(t, filepath.Join(dir, ".limen", "limen.yaml"), "label: handgeschrieben\n")
 
 	var out bytes.Buffer
 	r := Migrate(&out, dir, false)
 	if r.Action != "skipped" {
 		t.Fatalf("action = %q, want skipped", r.Action)
 	}
-	body, _ := os.ReadFile(filepath.Join(dir, ".limen.yaml"))
+	body, _ := os.ReadFile(filepath.Join(dir, ".limen", "limen.yaml"))
 	if !strings.Contains(string(body), "handgeschrieben") {
 		t.Error("an existing file was overwritten")
+	}
+}
+
+func TestMigrateLiftsTheFlatLayoutIntoLimenDir(t *testing.T) {
+	// A layout migration moves files verbatim: descriptor, notes and meta
+	// travel together, the ignore entry is retargeted, nothing is edited.
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, ".limen.yaml"), "label: handgeschrieben\npurpose: bleibt erhalten\n")
+	write(t, filepath.Join(dir, "LIMEN.md"), "# Notizen\n\n## 2026-08-11\n- alter Eintrag\n")
+	write(t, filepath.Join(dir, "LIMEN-META.yaml"), "bounded_context:\n  name: handgeschrieben\n")
+	write(t, filepath.Join(dir, ".gitignore"), "target/\n.limen.yaml\n")
+
+	var out bytes.Buffer
+	r := Migrate(&out, dir, false)
+	if r.Action != "written" {
+		t.Fatalf("action = %q, reason %q", r.Action, r.Reason)
+	}
+	for path, want := range map[string]string{
+		filepath.Join(".limen", "limen.yaml"): "bleibt erhalten",
+		filepath.Join(".limen", "notes.md"):   "alter Eintrag",
+		filepath.Join(".limen", "meta.yaml"):  "bounded_context",
+	} {
+		body, err := os.ReadFile(filepath.Join(dir, path))
+		if err != nil || !strings.Contains(string(body), want) {
+			t.Errorf("%s: err=%v, missing %q:\n%s", path, err, want, body)
+		}
+	}
+	for _, gone := range []string{".limen.yaml", "LIMEN.md", "LIMEN-META.yaml"} {
+		if _, err := os.Stat(filepath.Join(dir, gone)); !os.IsNotExist(err) {
+			t.Errorf("%s should have moved away", gone)
+		}
+	}
+
+	// The ignore entry follows the descriptor instead of being duplicated.
+	body, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if !strings.Contains(string(body), ".limen/limen.yaml") {
+		t.Errorf("ignore entry not retargeted:\n%s", body)
+	}
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.TrimSpace(line) == ".limen.yaml" {
+			t.Errorf("stale flat ignore entry survived:\n%s", body)
+		}
+	}
+
+	// Idempotent, and the lifted context reads back unchanged.
+	if r2 := Migrate(&out, dir, false); r2.Action != "skipped" {
+		t.Errorf("second run: action = %q, want skipped", r2.Action)
+	}
+	ctx, ok := Discover(dir)
+	if !ok || ctx.Label != "handgeschrieben" || ctx.Purpose != "bleibt erhalten" {
+		t.Fatalf("lifted context reads differently: %+v", ctx)
+	}
+	if ctx.NotesFile() != filepath.Join(dir, ".limen", "notes.md") {
+		t.Errorf("NotesFile = %q", ctx.NotesFile())
+	}
+}
+
+func TestMigrateDryRunLiftsNothing(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, ".limen.yaml"), "label: x\n")
+	write(t, filepath.Join(dir, "LIMEN.md"), "- eintrag\n")
+
+	var out bytes.Buffer
+	if r := Migrate(&out, dir, true); r.Action != "would-write" {
+		t.Fatalf("action = %q", r.Action)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".limen.yaml")); err != nil {
+		t.Error("dry run moved the descriptor")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "LIMEN.md")); err != nil {
+		t.Error("dry run moved the notes")
 	}
 }
 
@@ -148,7 +219,7 @@ func TestMigrateDryRunWritesNothing(t *testing.T) {
 	if r.Action != "would-write" {
 		t.Fatalf("action = %q", r.Action)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".limen.yaml")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, ".limen")); !os.IsNotExist(err) {
 		t.Error("dry run created a file")
 	}
 }
@@ -161,7 +232,7 @@ func TestMigrateAddsTheGitignoreEntry(t *testing.T) {
 	var out bytes.Buffer
 	Migrate(&out, dir, false)
 	body, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
-	if !strings.Contains(string(body), ".limen.yaml") {
+	if !strings.Contains(string(body), ".limen/limen.yaml") {
 		t.Errorf("no ignore entry:\n%s", body)
 	}
 	if !strings.Contains(string(body), "target/") {
@@ -188,13 +259,13 @@ func TestMigrateUsesGitInfoExcludeWhenThereIsNoGitignore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("no exclude file: %v", err)
 	}
-	if !strings.Contains(string(body), ".limen.yaml") {
+	if !strings.Contains(string(body), ".limen/limen.yaml") {
 		t.Errorf("no entry:\n%s", body)
 	}
 
 	// git itself must agree — the entry is worthless if it does not match.
-	if err := exec.Command("git", "-C", dir, "check-ignore", "-q", ".limen.yaml").Run(); err != nil {
-		t.Error("git does not consider .limen.yaml ignored")
+	if err := exec.Command("git", "-C", dir, "check-ignore", "-q", ".limen/limen.yaml").Run(); err != nil {
+		t.Error("git does not consider .limen/limen.yaml ignored")
 	}
 }
 

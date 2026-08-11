@@ -52,6 +52,8 @@ limen json      # maschinenlesbar (Atrium, Statuszeilen)
 limen shell     # export-Zeilen für  eval "$(limen shell)"
 limen prompt    # einzeiliges Segment, berührt den Schlüsselbund nicht
 limen root      # Pfad der Projektwurzel
+limen list      # alle registrierten Kontexte, --json für Agenten
+limen register  # Kontext ins Register aufnehmen (der Hook tut das von selbst)
 limen init      # .limen.yaml anlegen
 limen migrate   # .limen.yaml aus .orca/ übernehmen, für viele Projekte
 limen hook zsh  # Shell-Integration ausgeben

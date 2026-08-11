@@ -21,6 +21,9 @@ const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
   limen shell           export-Zeilen für  eval "$(limen shell)"
   limen prompt          einzeiliges Segment für RPROMPT / Statuszeile
   limen root            Pfad des Projektwurzelverzeichnisses
+  limen list [--json]   alle registrierten Kontexte dieser Maschine
+  limen register [pfad…] Kontext ins Register aufnehmen (der Shell-Hook tut
+                        das beim Betreten von selbst)
   limen init            .limen.yaml im aktuellen Verzeichnis anlegen
   limen migrate [pfad…] .limen.yaml erzeugen — aus .orca/ übernommen, sonst
                         aus dem ableitbaren Rest. --dry-run zeigt nur.
@@ -80,6 +83,13 @@ func run(args []string, stdout, stderr *os.File) int {
 	case "shell":
 		// Silence and exit 0 without a context: this runs from .zshrc.
 		RenderShell(out, ctxOrNil(ctx, found), resolver)
+		if found {
+			// Crossing the threshold is what makes a root known: the hook runs
+			// here on every cd, so every context ever entered appears in
+			// `limen list` without anyone maintaining an index. Best effort —
+			// a failure to record must never break a shell startup file.
+			RegisterRoot(ctx.Root)
+		}
 
 	case "prompt":
 		if found {
@@ -89,6 +99,21 @@ func run(args []string, stdout, stderr *os.File) int {
 	case "root":
 		if found {
 			fmt.Fprintln(out, ctx.Root)
+		}
+
+	case "list":
+		jsonOut := len(args) > 1 && args[1] == "--json"
+		if err := CmdList(out, jsonOut); err != nil {
+			out.Flush()
+			fmt.Fprintf(stderr, "limen: %v\n", err)
+			return 1
+		}
+
+	case "register":
+		if err := CmdRegister(out, args[1:], cwd); err != nil {
+			out.Flush()
+			fmt.Fprintf(stderr, "limen: %v\n", err)
+			return 1
 		}
 
 	case "migrate":

@@ -41,10 +41,23 @@ func runLimen(t *testing.T, dir string, env []string, args ...string) result {
 	cmd.Dir = dir
 	// A deliberately minimal environment: HOME is needed for tilde expansion,
 	// PATH for security(1). ANTHROPIC_API_KEY stays unset unless a test sets it.
-	cmd.Env = append([]string{
+	// XDG_STATE_HOME points into the test directory so `shell` and `register`
+	// never touch the real registry under ~/.local/state; a test that needs a
+	// shared registry across calls passes its own value in env instead.
+	base := []string{
 		"HOME=" + os.Getenv("HOME"),
 		"PATH=" + os.Getenv("PATH"),
-	}, env...)
+	}
+	stateSet := false
+	for _, e := range env {
+		if strings.HasPrefix(e, "XDG_STATE_HOME=") {
+			stateSet = true
+		}
+	}
+	if !stateSet {
+		base = append(base, "XDG_STATE_HOME="+filepath.Join(dir, ".limen-test-state"))
+	}
+	cmd.Env = append(base, env...)
 
 	var out, errb strings.Builder
 	cmd.Stdout = &out

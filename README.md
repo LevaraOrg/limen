@@ -55,6 +55,7 @@ limen root      # Pfad der Projektwurzel
 limen list      # alle registrierten Kontexte, --json für Agenten
 limen register  # Kontext ins Register aufnehmen (der Hook tut das von selbst)
 limen note      # datierte Notiz an .limen/notes.md anhängen, --at <label> von überall
+limen backlog   # offene Notizen aller Kontexte — wo etwas zu tun ist
 limen init      # .limen/limen.yaml anlegen
 limen migrate   # aufs .limen/-Layout heben (flache .limen.yaml, .orca/), für viele Projekte
 limen hook zsh  # Shell-Integration ausgeben
@@ -168,6 +169,22 @@ Schnittstellen, Routing — und wird von Werkzeugen **nie** beschrieben. Lose
 Gedanken, Ideen und Backlog wandern nach `.limen/notes.md`, nur angehängt, nie
 umgeschrieben. Und anders als der Deskriptor sind `notes.md` und `meta.yaml`
 Projektinhalt, kein Maschinenzustand: sie **gehören** ins Repository.
+
+Die Gegenrichtung — *wo* ist etwas offen? — beantwortet `limen backlog`: es
+läuft übers Register, liest jede `notes.md` und listet alles Unabgehakte,
+mit Pfad zum Reinwechseln:
+
+```
+produktstrategie — 1 offen
+  /Users/…/Produktmanagement/Produktstrategie
+  2026-08-11  Design Thinking: Kundenbedürfnisse pro Journey-Phase …
+```
+
+**Abhaken** ist das eine erlaubte In-Place-Edit im Log: aus `- …` wird
+`- ✓ …`, sonst ändert sich nichts. `backlog` zählt abgehakte Zeilen mit
+(`--json` trägt sie als `done`), zeigt sie aber nicht mehr als offen. Wer
+etwas erledigt — Mensch oder Agent — hakt die Zeile ab und hängt bei Bedarf
+eine datierte Folge-Notiz an, was wo eingearbeitet wurde.
 
 ## `.limen/limen.yaml` gehört nicht ins Repository
 

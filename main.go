@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const version = "0.4.0"
+const version = "0.5.0"
 
 const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
 
@@ -27,6 +27,8 @@ const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
                         das beim Betreten von selbst)
   limen note [--at label] "text"
                         datierte Notiz an .limen/notes.md anhängen
+  limen backlog [--json] offene Notizen aller Kontexte — wo etwas zu tun ist;
+                        eine Zeile mit "- ✓ …" gilt als abgehakt
   limen init            .limen/limen.yaml im aktuellen Verzeichnis anlegen
   limen migrate [pfad…] aufs .limen/-Layout bringen — hebt flache .limen.yaml
                         samt LIMEN.md/LIMEN-META.yaml hoch, übernimmt .orca/,
@@ -120,6 +122,14 @@ func run(args []string, stdout, stderr *os.File) int {
 
 	case "register":
 		if err := CmdRegister(out, args[1:], cwd); err != nil {
+			out.Flush()
+			fmt.Fprintf(stderr, "limen: %v\n", err)
+			return 1
+		}
+
+	case "backlog":
+		jsonOut := len(args) > 1 && args[1] == "--json"
+		if err := CmdBacklog(out, jsonOut); err != nil {
 			out.Flush()
 			fmt.Fprintf(stderr, "limen: %v\n", err)
 			return 1

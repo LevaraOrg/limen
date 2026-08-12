@@ -155,6 +155,7 @@ type listView struct {
 	Label   string   `json:"label"`
 	Purpose string   `json:"purpose"`
 	Topics  []string `json:"topics"`
+	Service *Service `json:"service"`
 	Source  string   `json:"source"`
 }
 
@@ -175,6 +176,7 @@ func CmdList(w io.Writer, jsonOut bool) error {
 				Label:   c.Label,
 				Purpose: c.Purpose,
 				Topics:  c.TopicList(),
+				Service: c.Service,
 				Source:  string(c.Source),
 			})
 		}

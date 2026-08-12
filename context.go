@@ -52,6 +52,10 @@ type Context struct {
 	// its presence is reported as a warning, because a key in a committed file
 	// is a defect rather than a feature.
 	PlaintextKey string
+
+	// Service is an adjacent service.yaml, discovered rather than declared —
+	// see service.go for why there is no `kind:` field here.
+	Service *Service
 }
 
 var keyPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*$`)
@@ -202,6 +206,7 @@ func (c *Context) finish() {
 		c.Label = filepath.Base(c.Root)
 	}
 	c.ClaudeDir = expandTilde(c.ClaudeDir)
+	c.Service = readService(c.Root)
 }
 
 func expandTilde(p string) string {

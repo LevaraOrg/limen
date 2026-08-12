@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const version = "0.5.0"
+const version = "0.6.0"
 
 const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
 
@@ -44,6 +44,9 @@ Shell-Startdatei möglich ist.
 Alles Limen-Eigene liegt in .limen/: limen.yaml ist der Deskriptor (harte
 Wahrheit, wird von Werkzeugen nie beschrieben, maschinenlokal), notes.md
 sammelt lose Gedanken, meta.yaml die harten Kontextfakten.
+
+Liegt daneben eine service.yaml (agnostic-stack), wird ihr kind gelesen und
+in show/json/list mitgemeldet — entdeckt, nicht dupliziert.
 `
 
 func main() {

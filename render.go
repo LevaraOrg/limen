@@ -39,6 +39,7 @@ type jsonView struct {
 	Gateway         string   `json:"gateway"`
 	Purpose         string   `json:"purpose"`
 	Topics          []string `json:"topics"`
+	Service         *Service `json:"service"`
 	Source          string   `json:"source"`
 	APIKeyPresent   bool     `json:"api_key_present"`
 	APIKeyInConfig  bool     `json:"api_key_in_config"`
@@ -65,6 +66,7 @@ func RenderJSON(w io.Writer, c *Context, r KeyResolver) error {
 		Gateway:         c.Gateway,
 		Purpose:         c.Purpose,
 		Topics:          c.TopicList(),
+		Service:         c.Service,
 		Source:          string(c.Source),
 		APIKeyPresent:   present,
 		APIKeyInConfig:  c.HasPlaintextKey(),
@@ -96,6 +98,9 @@ func RenderShow(w io.Writer, c *Context, r KeyResolver) {
 	line("gateway", c.Gateway)
 	line("purpose", c.Purpose)
 	line("topics", c.Topics)
+	if c.HasService() {
+		line("service", fmt.Sprintf("%s (%s, %s)", c.Service.Kind, c.Service.APIVersion, c.Service.File))
+	}
 	fmt.Fprintf(w, "api key:      %s\n", KeySource(c, r))
 	switch {
 	case c.Source == SourceOrca:

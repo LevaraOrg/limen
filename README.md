@@ -126,6 +126,28 @@ Leere Felder werden ausgelassen. Ein Wechsel in ein Projekt ohne
 verwirrt. Werte mit Anführungszeichen werden shell-sicher quotiert; ein Label
 wie `it's fine` übersteht `eval`.
 
+## service.yaml wird entdeckt, nicht dupliziert
+
+Manche Projekte tragen eine `service.yaml` (agnostic-stack) — den Descriptor
+dessen, was sie tatsächlich anbieten. Liegt eine neben dem Kontext, liest Limen
+daraus **nur** `apiVersion` und `kind` und meldet sie in `show`, `json` und
+`list --json` mit:
+
+```
+service:      Service (agnostic-stack/v1, service.yaml)
+```
+
+Bewusst **kein** eigenes `kind:`-Feld im Deskriptor: die `service.yaml` trägt
+`kind:` selbst, ein handgepflegter Zweitwert könnte davon abweichen — und
+täte es. `agnostic-stack-tests` steht dort als `TestOrchestrator`; ein kopiertes
+Feld hätte mit einiger Sicherheit „service" gesagt. Entdecken kostet keine
+Pflege und kann der Datei, die es beschreibt, nicht widersprechen.
+
+Gelesen wird durch denselben flachen Parser, aber über einen eigenen Zweig:
+`service.yaml` hat einen verschachtelten `metadata:`-Block, dessen `name:`
+sonst im `actor` landen würde. Nach den zwei Feldern bricht das Lesen ab — sie
+stehen in den ersten Zeilen.
+
 ## Register und Notizen — Kontexte als Ankerpunkte für Agenten
 
 `Discover` sucht nur aufwärts; ein Agent, der eine Sprachnotiz „ergänze Design

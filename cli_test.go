@@ -97,7 +97,7 @@ func project(t *testing.T, body string) (root, nested string) {
 }
 
 const fullConfig = `label: tessera
-purpose: Produktstrategie — Rollenerarbeitung und Präsentationen
+purpose: Product strategy — role design and presentations
 topics: design-thinking, customer-journey
 actor: Matthias Wegner
 githubUser: leo81
@@ -156,7 +156,7 @@ func TestCLIJSONIsValidAndComplete(t *testing.T) {
 	if !strings.Contains(r.stdout, `"api_key_in_config":false`) {
 		t.Errorf("json should report no plaintext key:\n%s", r.stdout)
 	}
-	if !strings.Contains(r.stdout, `"purpose":"Produktstrategie — Rollenerarbeitung und Präsentationen"`) {
+	if !strings.Contains(r.stdout, `"purpose":"Product strategy — role design and presentations"`) {
 		t.Errorf("json purpose wrong:\n%s", r.stdout)
 	}
 	if !strings.Contains(r.stdout, `"topics":["design-thinking","customer-journey"]`) {
@@ -313,7 +313,7 @@ func TestCLIInitProtectsTheFileFromBeingCommitted(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("init failed: %s", r.stderr)
 	}
-	if !strings.Contains(r.stdout, "in .gitignore eingetragen") {
+	if !strings.Contains(r.stdout, "added to .gitignore") {
 		t.Errorf("init should report the ignore entry:\n%s", r.stdout)
 	}
 	body, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
@@ -332,7 +332,7 @@ func TestCLIInitProtectsTheFileFromBeingCommitted(t *testing.T) {
 	dir2 := tempDir(t)
 	write(t, filepath.Join(dir2, ".gitignore"), "target/\n.limen/limen.yaml\n")
 	r = runLimen(t, dir2, nil, "init")
-	if !strings.Contains(r.stdout, "steht bereits in .gitignore") {
+	if !strings.Contains(r.stdout, "already in .gitignore") {
 		t.Errorf("expected the already-present path:\n%s", r.stdout)
 	}
 	body, _ = os.ReadFile(filepath.Join(dir2, ".gitignore"))
@@ -373,7 +373,7 @@ func TestCLIInitOutsideAGitRepoSaysThereIsNothingToIgnore(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("init failed: %s", r.stderr)
 	}
-	if !strings.Contains(r.stdout, "Kein Git-Repository") {
+	if !strings.Contains(r.stdout, "Not a git repository") {
 		t.Errorf("expected the no-repository note, got:\n%s", r.stdout)
 	}
 	for _, unwanted := range []string{".gitignore", "info/exclude"} {

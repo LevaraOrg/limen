@@ -51,14 +51,14 @@ type Plugin struct {
 func readPlugin(dir string) (*Plugin, error) {
 	body, err := os.ReadFile(filepath.Join(dir, "plugin.json"))
 	if err != nil {
-		return nil, fmt.Errorf("kein Agent-Plugins-Paket (plugin.json fehlt in %s)", dir)
+		return nil, fmt.Errorf("not an Agent Plugins package (no plugin.json in %s)", dir)
 	}
 	var p Plugin
 	if err := json.Unmarshal(body, &p); err != nil {
-		return nil, fmt.Errorf("plugin.json in %s ist kein gültiges JSON: %v", dir, err)
+		return nil, fmt.Errorf("plugin.json in %s is not valid JSON: %v", dir, err)
 	}
 	if p.Name == "" {
-		return nil, fmt.Errorf("plugin.json in %s hat kein name-Feld", dir)
+		return nil, fmt.Errorf("plugin.json in %s has no name field", dir)
 	}
 	return &p, nil
 }
@@ -103,7 +103,7 @@ func installedProfile(name string) (dir string, p *Plugin, err error) {
 	dir = filepath.Join(store, name)
 	p, err = readPlugin(dir)
 	if err != nil {
-		return "", nil, fmt.Errorf("Profil %q ist nicht installiert — limen profile install <pfad|git-url>", name)
+		return "", nil, fmt.Errorf("profile %q is not installed — limen profile install <path|git-url>", name)
 	}
 	return dir, p, nil
 }
@@ -170,7 +170,7 @@ func readLock(c *Context) (*Lock, error) {
 	}
 	var l Lock
 	if err := json.Unmarshal(body, &l); err != nil {
-		return nil, fmt.Errorf("%s ist kein gültiges JSON: %v", lockPath(c), err)
+		return nil, fmt.Errorf("%s is not valid JSON: %v", lockPath(c), err)
 	}
 	if l.Profiles == nil {
 		l.Profiles = map[string]LockEntry{}
@@ -313,13 +313,13 @@ func CmdProfile(w io.Writer, c *Context, args []string) (int, error) {
 	case "check":
 		return profileCheck(w, c)
 	default:
-		return 2, fmt.Errorf("unbekannter Unterbefehl %q (status, list, install, sync, check)", sub)
+		return 2, fmt.Errorf("unknown subcommand %q (status, list, install, sync, check)", sub)
 	}
 }
 
 func needContext(c *Context) error {
 	if c == nil {
-		return fmt.Errorf("kein Kontext gefunden — limen init")
+		return fmt.Errorf("no context found — limen init")
 	}
 	return nil
 }
@@ -332,8 +332,8 @@ func profileStatus(w io.Writer, c *Context) error {
 	}
 	declared := c.ProfileList()
 	if len(declared) == 0 {
-		fmt.Fprintln(w, "Keine Profile deklariert.")
-		fmt.Fprintf(w, "Eintragen in %s:  profiles: levara-baseline@1.0.0\n",
+		fmt.Fprintln(w, "No profiles declared.")
+		fmt.Fprintf(w, "Declare one in %s:  profiles: levara-baseline@1.0.0\n",
 			filepath.Join(".limen", "meta.yaml"))
 		return nil
 	}
@@ -345,13 +345,13 @@ func profileStatus(w io.Writer, c *Context) error {
 		entry, synced := lock.Profiles[p.Name]
 		switch {
 		case !synced:
-			fmt.Fprintf(w, "%-24s deklariert, nicht materialisiert — limen profile sync\n", p.String())
+			fmt.Fprintf(w, "%-24s declared, not materialised — limen profile sync\n", p.String())
 		default:
 			drift := driftIn(c, entry)
 			if len(drift) == 0 {
-				fmt.Fprintf(w, "%-24s aktuell (%d Dateien, %s)\n", p.String(), len(entry.Files), entry.Version)
+				fmt.Fprintf(w, "%-24s current (%d files, %s)\n", p.String(), len(entry.Files), entry.Version)
 			} else {
-				fmt.Fprintf(w, "%-24s %d Datei(en) abgewichen — limen profile check\n", p.String(), len(drift))
+				fmt.Fprintf(w, "%-24s %d file(s) drifted — limen profile check\n", p.String(), len(drift))
 			}
 		}
 	}
@@ -365,8 +365,8 @@ func profileStoreList(w io.Writer) error {
 	}
 	if len(plugins) == 0 {
 		store, _ := profileStorePath()
-		fmt.Fprintf(w, "Kein Profil installiert (%s ist leer).\n", store)
-		fmt.Fprintln(w, "Holen:  limen profile install <pfad|git-url>")
+		fmt.Fprintf(w, "No profile installed (%s is empty).\n", store)
+		fmt.Fprintln(w, "Fetch one:  limen profile install <path|git-url>")
 		return nil
 	}
 	for _, p := range plugins {
@@ -385,7 +385,7 @@ func profileStoreList(w io.Writer) error {
 // git implementation.
 func profileInstall(w io.Writer, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("limen profile install <pfad|git-url>")
+		return fmt.Errorf("limen profile install <path|git-url>")
 	}
 	src := args[0]
 
@@ -432,9 +432,9 @@ func profileInstall(w io.Writer, args []string) error {
 	}
 	version := p.Version
 	if version == "" {
-		version = "ohne Version"
+		version = "no version"
 	}
-	fmt.Fprintf(w, "installiert: %s %s → %s\n", p.Name, version, target)
+	fmt.Fprintf(w, "installed: %s %s → %s\n", p.Name, version, target)
 	return nil
 }
 
@@ -452,7 +452,7 @@ func profileSync(w io.Writer, c *Context, dry bool) error {
 	}
 	declared := c.ProfileList()
 	if len(declared) == 0 {
-		fmt.Fprintln(w, "Keine Profile deklariert — nichts zu tun.")
+		fmt.Fprintln(w, "No profiles declared — nothing to do.")
 		return nil
 	}
 	lock, err := readLock(c)
@@ -467,7 +467,7 @@ func profileSync(w io.Writer, c *Context, dry bool) error {
 			return err
 		}
 		if !versionMatches(p.Version, plugin.Version) {
-			return fmt.Errorf("Profil %s: installiert ist %s, deklariert %s — limen profile install <quelle>",
+			return fmt.Errorf("profile %s: installed is %s, declared %s — limen profile install <source>",
 				p.Name, orDash(plugin.Version), p.Version)
 		}
 		items, err := collect(dir, c)
@@ -475,7 +475,7 @@ func profileSync(w io.Writer, c *Context, dry bool) error {
 			return err
 		}
 		if len(items) == 0 {
-			return fmt.Errorf("Profil %s trägt weder skills/ noch adr/", p.Name)
+			return fmt.Errorf("profile %s carries neither skills/ nor adr/", p.Name)
 		}
 
 		entry := LockEntry{Version: plugin.Version, Source: plugin.Repository, Files: map[string]string{}}
@@ -484,7 +484,7 @@ func profileSync(w io.Writer, c *Context, dry bool) error {
 		}
 		for _, item := range items {
 			if dry {
-				fmt.Fprintf(w, "würde schreiben: %s\n", item.to)
+				fmt.Fprintf(w, "would write: %s\n", item.to)
 				continue
 			}
 			abs := filepath.Join(c.Root, item.to)
@@ -506,12 +506,12 @@ func profileSync(w io.Writer, c *Context, dry bool) error {
 				continue
 			}
 			if dry {
-				fmt.Fprintf(w, "würde entfernen: %s\n", rel)
+				fmt.Fprintf(w, "would remove: %s\n", rel)
 				continue
 			}
 			os.Remove(filepath.Join(c.Root, rel))
 			pruneEmptyDirs(c.Root, filepath.Dir(rel))
-			fmt.Fprintf(w, "entfernt: %s\n", rel)
+			fmt.Fprintf(w, "removed: %s\n", rel)
 		}
 	}
 
@@ -522,19 +522,19 @@ func profileSync(w io.Writer, c *Context, dry bool) error {
 		}
 		for rel := range entry.Files {
 			if dry {
-				fmt.Fprintf(w, "würde entfernen: %s (Profil %s nicht mehr deklariert)\n", rel, name)
+				fmt.Fprintf(w, "would remove: %s (profile %s no longer declared)\n", rel, name)
 				continue
 			}
 			os.Remove(filepath.Join(c.Root, rel))
 			pruneEmptyDirs(c.Root, filepath.Dir(rel))
 		}
 		if !dry {
-			fmt.Fprintf(w, "Profil %s entfernt (nicht mehr in meta.yaml)\n", name)
+			fmt.Fprintf(w, "profile %s removed (no longer in meta.yaml)\n", name)
 		}
 	}
 
 	if dry {
-		fmt.Fprintln(w, "\n--dry-run: nichts geschrieben.")
+		fmt.Fprintln(w, "\n--dry-run: nothing written.")
 		return nil
 	}
 	if err := writeLock(c, next); err != nil {
@@ -544,7 +544,7 @@ func profileSync(w io.Writer, c *Context, dry bool) error {
 	for _, e := range next.Profiles {
 		count += len(e.Files)
 	}
-	fmt.Fprintf(w, "%d Datei(en) aus %d Profil(en) materialisiert, %s geschrieben.\n",
+	fmt.Fprintf(w, "%d file(s) from %d profile(s) materialised, %s written.\n",
 		count, len(next.Profiles), filepath.Join(".limen", "profiles.lock"))
 	return nil
 }
@@ -599,19 +599,19 @@ func profileCheck(w io.Writer, c *Context) (int, error) {
 	for _, p := range declared {
 		entry, synced := lock.Profiles[p.Name]
 		if !synced {
-			fmt.Fprintf(w, "%s: deklariert, aber nie materialisiert — limen profile sync\n", p.String())
+			fmt.Fprintf(w, "%s: declared but never materialised — limen profile sync\n", p.String())
 			bad++
 			continue
 		}
 		if !versionMatches(p.Version, entry.Version) {
-			fmt.Fprintf(w, "%s: materialisiert ist %s — limen profile sync\n", p.String(), orDash(entry.Version))
+			fmt.Fprintf(w, "%s: materialised is %s — limen profile sync\n", p.String(), orDash(entry.Version))
 			bad++
 		}
 		for _, rel := range driftIn(c, entry) {
 			if _, err := os.Stat(filepath.Join(c.Root, rel)); os.IsNotExist(err) {
-				fmt.Fprintf(w, "%s: fehlt — %s\n", rel, p.Name)
+				fmt.Fprintf(w, "%s: missing — %s\n", rel, p.Name)
 			} else {
-				fmt.Fprintf(w, "%s: verändert gegenüber %s\n", rel, p.Name)
+				fmt.Fprintf(w, "%s: changed against %s\n", rel, p.Name)
 			}
 			bad++
 		}
@@ -626,15 +626,15 @@ func profileCheck(w io.Writer, c *Context) (int, error) {
 			}
 		}
 		if !found {
-			fmt.Fprintf(w, "%s: materialisiert, aber nicht mehr deklariert — limen profile sync\n", name)
+			fmt.Fprintf(w, "%s: materialised but no longer declared — limen profile sync\n", name)
 			bad++
 		}
 	}
 	if bad > 0 {
-		fmt.Fprintf(w, "\n%d Abweichung(en).\n", bad)
+		fmt.Fprintf(w, "\n%d deviation(s).\n", bad)
 		return 1, nil
 	}
-	fmt.Fprintf(w, "%d Profil(e) unverändert.\n", len(declared))
+	fmt.Fprintf(w, "%d profile(s) unchanged.\n", len(declared))
 	return 0, nil
 }
 

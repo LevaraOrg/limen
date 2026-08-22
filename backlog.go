@@ -3,7 +3,7 @@ package main
 // `limen backlog` answers the question the notes files cannot answer one by
 // one: where is something open? It walks the register, reads every context's
 // notes and lists the bullets nobody has ticked off yet — the jumping-off
-// point for "cd dorthin und die Aufgabe erledigen".
+// point for "cd there and get the thing done".
 //
 // Done is a leading ✓ on the bullet: `- ✓ …`. Ticking a line is the one
 // sanctioned in-place edit of a notes file; everything else stays append-only,
@@ -98,7 +98,7 @@ func CmdBacklog(w io.Writer, jsonOut bool) error {
 		}
 		contexts++
 		totalOpen += len(v.Open)
-		fmt.Fprintf(w, "%s — %d offen\n", v.Label, len(v.Open))
+		fmt.Fprintf(w, "%s — %d open\n", v.Label, len(v.Open))
 		fmt.Fprintf(w, "  %s\n", v.Root)
 		for _, e := range v.Open {
 			fmt.Fprintf(w, "  %s  %s\n", e.Date, truncate(e.Text, 100))
@@ -106,12 +106,12 @@ func CmdBacklog(w io.Writer, jsonOut bool) error {
 		fmt.Fprintln(w)
 	}
 	if totalOpen == 0 {
-		fmt.Fprintln(w, "Nichts offen — keine unabgehakten Notizen in den registrierten Kontexten.")
+		fmt.Fprintln(w, "Nothing open — no unchecked notes in the registered contexts.")
 		return nil
 	}
-	fmt.Fprintf(w, "%d offen in %d Kontexten", totalOpen, contexts)
+	fmt.Fprintf(w, "%d open in %d contexts", totalOpen, contexts)
 	if totalDone > 0 {
-		fmt.Fprintf(w, ", %d abgehakt ✓", totalDone)
+		fmt.Fprintf(w, ", %d done ✓", totalDone)
 	}
 	fmt.Fprintln(w)
 	return nil

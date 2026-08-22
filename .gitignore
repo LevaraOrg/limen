@@ -2,5 +2,5 @@
 coverage.out
 .DS_Store
 
-# limen: maschinenlokale Identität, gehört nicht ins Repository
+# limen: machine-local identity, does not belong in the repository
 .limen/limen.yaml

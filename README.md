@@ -1,92 +1,90 @@
 # Limen
 
-‹limen› — die Schwelle. Jedes `cd` ist ein Schwellengang; dahinter gilt eine
-andere Identität. Limen sagt welche, und exportiert sie.
+‹limen› — the threshold. Every `cd` is a crossing; behind it a different
+identity applies. Limen says which, and exports it.
 
-Ein einzelnes Go-Binary ohne Abhängigkeiten. Ersetzt `orca env` aus dem
-stillgelegten Orca-Monolithen.
+A single Go binary with no dependencies. Replaces `orca env` from the retired
+Orca monolith.
 
-## Warum nicht das alte Werkzeug
+## Why not the old tool
 
-Der Nutzen war nie das Problem, die Startzeit war es. `orca env json` brauchte
-auf dieser Maschine **530 ms**, weil jeder Aufruf eine JVM hochfährt — deshalb
-cachte die alte WezTerm-Integration ihr Ergebnis 15 Sekunden lang und lag bei
-jedem Verzeichniswechsel eine Weile daneben. Ein Kontextwerkzeug, das bei jedem
-`cd` läuft, darf das nicht kosten.
+Its usefulness was never the problem — its startup time was. `orca env json`
+took **530 ms** on this machine, because every call spins up a JVM. That is why
+the old WezTerm integration cached its result for 15 seconds and was wrong for a
+while after every directory change. A context tool that runs on every `cd`
+cannot cost that.
 
-Gemessen mit `make bench` (200 Läufe je Zeile, dieselbe Maschine):
+Measured with `make bench` (200 runs per row, same machine):
 
-| | pro Aufruf |
+| | per call |
 |---|---|
-| `orca env json` (JVM) | **530 ms**, deshalb 15 s Cache |
-| `limen prompt` | **5,9 ms** |
-| `limen shell`, Schlüssel schon in der Umgebung | **5,6 ms** |
-| `limen shell`, Schlüsselbund-Zugriff | 25,0 ms |
-| `/usr/bin/true` als Vergleich | 3,9 ms |
+| `orca env json` (JVM) | **530 ms**, hence the 15 s cache |
+| `limen prompt` | **5.9 ms** |
+| `limen shell`, key already in the environment | **5.6 ms** |
+| `limen shell`, keychain access | 25.0 ms |
+| `/usr/bin/true` for comparison | 3.9 ms |
 
-Die untere Schranke auf dieser Maschine ist der Prozessstart selbst: 3,9 ms.
-Limens Eigenanteil liegt also bei **rund 1,5 ms**. Die einzige teure Zeile ist
-der Schlüsselbund, und das ist ein `security(1)`-Fork — macOS-Kosten, keine
-Limen-Kosten. Wer den Schlüssel einmal in die Umgebung exportiert, zahlt sie
-nicht.
+The floor on this machine is process startup itself: 3.9 ms. Limen's own share
+is therefore **about 1.5 ms**. The only expensive row is the keychain, and that
+is a `security(1)` fork — a macOS cost, not a Limen cost. Export the key into
+the environment once and you never pay it.
 
 ## Installation
 
 ```bash
-make install                    # baut und legt nach ~/.local/bin
-eval "$(limen hook zsh)"        # in ~/.zshrc aufnehmen
+make install                    # builds and drops it in ~/.local/bin
+eval "$(limen hook zsh)"        # add to ~/.zshrc
 ```
 
-Braucht Go zum Bauen (`brew install go`), danach nichts mehr — das Binary ist
-statisch und trägt keine Laufzeitabhängigkeit.
+Needs Go to build (`brew install go`), nothing after that — the binary is static
+and carries no runtime dependency.
 
-Der Hook ruft Limen genau **einmal** je Verzeichniswechsel. `LIMEN_SEGMENT`
-kommt aus derselben Ausgabe mit, damit die Statuszeile keinen zweiten
-Prozessstart kostet.
+The hook calls Limen exactly **once** per directory change. `LIMEN_SEGMENT`
+rides along in the same output, so the status line costs no second process
+start.
 
-## Benutzung
+## Usage
 
 ```bash
-limen show      # lesbare Übersicht
-limen json      # maschinenlesbar (Atrium, Statuszeilen)
-limen shell     # export-Zeilen für  eval "$(limen shell)"
-limen prompt    # einzeiliges Segment, berührt den Schlüsselbund nicht
-limen root      # Pfad der Projektwurzel
-limen list      # alle registrierten Kontexte, --json für Agenten
-limen register  # Kontext ins Register aufnehmen (der Hook tut das von selbst)
-limen note      # datierte Notiz an .limen/notes.md anhängen, --at <label> von überall
-limen backlog   # offene Notizen aller Kontexte — wo etwas zu tun ist
-limen profile   # geerbte Normen: was gilt hier, ist es aktuell (sync, check, install)
-limen init      # .limen/limen.yaml anlegen
-limen migrate   # aufs .limen/-Layout heben (flache .limen.yaml, .orca/), für viele Projekte
-limen hook zsh  # Shell-Integration ausgeben
+limen show      # readable overview
+limen json      # machine-readable (Atrium, status lines)
+limen shell     # export lines for  eval "$(limen shell)"
+limen prompt    # one-line segment, never touches the keychain
+limen root      # path of the project root
+limen list      # every registered context, --json for agents
+limen register  # take a context into the registry (the hook does it by itself)
+limen note      # append a dated note to .limen/notes.md, --at <label> from anywhere
+limen backlog   # open notes across all contexts — where something is to be done
+limen profile   # inherited norms: what applies here, is it current (sync, check, install)
+limen init      # create .limen/limen.yaml
+limen migrate   # lift onto the .limen/ layout (flat .limen.yaml, .orca/), for many projects
+limen hook zsh  # print the shell integration
 ```
 
-## Das Verzeichnis
+## The directory
 
-Alles Limen-Eigene liegt in **`.limen/`** in der Projektwurzel, **aufwärts**
-gesucht:
+Everything Limen owns lives in **`.limen/`** at the project root, searched
+**upward**:
 
-| Datei | Inhalt | Git |
+| File | Content | Git |
 |---|---|---|
-| `.limen/limen.yaml` | der Deskriptor (unten) | ignoriert — maschinenlokal |
-| `.limen/notes.md` | rollierende, datierte Notizen (`limen note`) | committen |
-| `.limen/meta.yaml` | harte Kontextfakten, darunter `profiles:` | committen |
-| `.limen/profiles.lock` | was materialisiert wurde, mit Hash je Datei | committen |
+| `.limen/limen.yaml` | the descriptor (below) | ignored — machine-local |
+| `.limen/notes.md` | rolling, dated notes (`limen note`) | commit it |
+| `.limen/meta.yaml` | hard context facts, among them `profiles:` | commit it |
+| `.limen/profiles.lock` | what was materialised, with a hash per file | commit it |
 
-Eine flache `.limen.yaml` aus früheren Versionen wird weiter gelesen;
-`limen migrate` hebt sie samt `LIMEN.md`/`LIMEN-META.yaml` nach `.limen/`.
+A flat `.limen.yaml` from earlier versions is still read; `limen migrate` lifts
+it into `.limen/` along with `LIMEN.md`/`LIMEN-META.yaml`.
 
-Der Deskriptor ist flaches YAML, ein `key: value` je Zeile, alle Felder
-optional:
+The descriptor is flat YAML, one `key: value` per line, every field optional:
 
 ```yaml
 label: tessera
 
-# Für Agenten: was in diesem Baum passiert. Darüber ordnet ein Leser von
-# `limen list` eine lose Notiz dem richtigen Verzeichnis zu.
-purpose: Produktstrategie — Rollenerarbeitung und Präsentationen
-topics: design-thinking, customer-journey, rollen
+# For agents: what happens in this tree. It is how a reader of `limen list`
+# routes a loose note to the right directory.
+purpose: Product strategy — role design and presentations
+topics: design-thinking, customer-journey, roles
 
 actor: Matthias Wegner
 githubUser: leo81
@@ -96,109 +94,106 @@ gcloudProject: my-project-123
 provider: anthropic
 model: claude-opus-5
 
-# Zeigt ANTHROPIC_BASE_URL auf ein lokales Nuncio. Damit gehört die
-# Modellroute zum Projekt und nicht zur Shell, aus der man es gestartet hat.
+# Points ANTHROPIC_BASE_URL at a local Nuncio. That makes the model route a
+# property of the project rather than of the shell it was started from.
 gateway: http://localhost:8787
 
 keychainService: limen-anthropic
-keychainAccount:                 # fällt auf actor zurück
+keychainAccount:                 # falls back to actor
 ```
 
-Der Parser nimmt bewusst nur flaches YAML und bringt keine YAML-Bibliothek mit.
-Ein Kontextdescriptor braucht keine Verschachtelung, und `key: value` je Zeile
-ist in 40 Zeilen gelesen. `githubUser`, `github-user` und `github_user` sind
-dasselbe Feld.
+The parser deliberately takes only flat YAML and brings no YAML library with it.
+A context descriptor needs no nesting, and `key: value` per line is read in 40
+lines. `githubUser`, `github-user` and `github_user` are the same field.
 
-## Was exportiert wird
+## What gets exported
 
-| Variable | Quelle |
+| Variable | Source |
 |----------|--------|
-| `LIMEN_ROOT` | Projektwurzel |
-| `LIMEN_LABEL` | `label`, sonst der Verzeichnisname |
+| `LIMEN_ROOT` | project root |
+| `LIMEN_LABEL` | `label`, otherwise the directory name |
 | `LIMEN_ACTOR`, `LIMEN_GH_USER` | `actor`, `githubUser` |
 | `LIMEN_PROVIDER`, `LIMEN_MODEL` | `provider`, `model` |
-| `LIMEN_SEGMENT` | fertiges Statuszeilen-Segment |
-| `CLAUDE_CONFIG_DIR` | `claudeConfigDir`, Tilde aufgelöst |
+| `LIMEN_SEGMENT` | ready-made status-line segment |
+| `CLAUDE_CONFIG_DIR` | `claudeConfigDir`, tilde expanded |
 | `CLOUDSDK_CORE_ACCOUNT`, `CLOUDSDK_CORE_PROJECT` | `gcloudAccount`, `gcloudProject` |
 | `ANTHROPIC_BASE_URL` | `gateway` |
-| `ANTHROPIC_API_KEY` | Umgebungsvariable, sonst Schlüsselbund |
+| `ANTHROPIC_API_KEY` | environment variable, otherwise the keychain |
 
-Leere Felder werden ausgelassen. Ein Wechsel in ein Projekt ohne
-`gcloudProject` exportiert also keine leere Variable, die `gcloud` dann
-verwirrt. Werte mit Anführungszeichen werden shell-sicher quotiert; ein Label
-wie `it's fine` übersteht `eval`.
+Empty fields are left out. Moving into a project without `gcloudProject`
+therefore exports no empty variable for `gcloud` to be confused by. Values with
+quotes are shell-quoted safely; a label like `it's fine` survives `eval`.
 
-## service.yaml wird entdeckt, nicht dupliziert
+## service.yaml is discovered, not duplicated
 
-Manche Projekte tragen eine `service.yaml` (agnostic-stack) — den Descriptor
-dessen, was sie tatsächlich anbieten. Liegt eine neben dem Kontext, liest Limen
-daraus **nur** `apiVersion` und `kind` und meldet sie in `show`, `json` und
-`list --json` mit:
+Some projects carry a `service.yaml` (agnostic-stack) — the descriptor of what
+they actually offer. When one sits next to the context, Limen reads **only**
+`apiVersion` and `kind` out of it and reports them in `show`, `json` and
+`list --json`:
 
 ```
 service:      Service (agnostic-stack/v1, service.yaml)
 ```
 
-Bewusst **kein** eigenes `kind:`-Feld im Deskriptor: die `service.yaml` trägt
-`kind:` selbst, ein handgepflegter Zweitwert könnte davon abweichen — und
-täte es. `agnostic-stack-tests` steht dort als `TestOrchestrator`; ein kopiertes
-Feld hätte mit einiger Sicherheit „service" gesagt. Entdecken kostet keine
-Pflege und kann der Datei, die es beschreibt, nicht widersprechen.
+Deliberately **no** `kind:` field of its own in the descriptor: `service.yaml`
+carries `kind:` itself, and a hand-maintained second value could drift from it —
+and would. `agnostic-stack-tests` says `TestOrchestrator` there; a copied field
+would almost certainly have said "service". Discovering costs no maintenance and
+cannot disagree with the file it describes.
 
-Gelesen wird durch denselben flachen Parser, aber über einen eigenen Zweig:
-`service.yaml` hat einen verschachtelten `metadata:`-Block, dessen `name:`
-sonst im `actor` landen würde. Nach den zwei Feldern bricht das Lesen ab — sie
-stehen in den ersten Zeilen.
+It is read by the same flat parser but through its own branch: `service.yaml`
+has a nested `metadata:` block whose `name:` would otherwise land in `actor`.
+Reading stops after the two fields — they are in the first lines.
 
-## Geerbte Normen — `limen profile`
+## Inherited norms — `limen profile`
 
-Manche Regeln gelten nicht für ein Projekt, sondern für alle: Doku auf
-Englisch, testgetrieben arbeiten, sparsam mit Tokens. Sie einmal zu beschließen
-und dann in jedem Repository neu hinzuschreiben, ist genau die zweite Wahrheit,
-die Limen sonst vermeidet — also gilt hier dieselbe Regel wie bei
-`service.yaml`: **Limen bindet und prüft, es speichert nicht.**
+Some rules apply not to one project but to all: documentation in English, work
+test-first, spend tokens sparingly. Deciding them once and then restating them
+in every repository is exactly the second truth Limen otherwise avoids — so the
+same rule applies here as for `service.yaml`: **Limen binds and verifies, it
+does not store.**
 
-Der Text einer Norm liegt in einem **Agent-Plugins-Paket**
-([agent-plugins.org](https://agent-plugins.org), Spec 1.0.0) — einem Verzeichnis
-mit `plugin.json`, `skills/` und hier zusätzlich `adr/`. Das Format wurde
-unverändert übernommen, nicht angepasst: sein ganzer Wert ist, dass Codex,
-Cursor, Copilot, Kiro und VS Code es ebenfalls lesen, und ein eigener Dialekt
-gäbe das für nichts auf. Limen ergänzt die zwei Dinge, die die Spec bewusst dem
-Client überlässt — **welches Projekt ein Paket erbt**, und **ob die Kopie im
-Projekt noch die ist, die beschlossen wurde**.
+A norm's text lives in an **Agent Plugins package**
+([agent-plugins.org](https://agent-plugins.org), spec 1.0.0) — a directory with
+`plugin.json`, `skills/` and, here, `adr/` as well. The format was adopted
+unchanged rather than adapted: its whole value is that Codex, Cursor, Copilot,
+Kiro and VS Code read it too, and a private dialect would trade that away for
+nothing. What Limen adds is the two things the spec deliberately leaves to the
+client: **which project inherits a package**, and **whether the copy in the
+project is still the one that was approved**.
 
 ```bash
 limen profile install https://github.com/LevaraOrg/levara-baseline
 ```
 
-Deklariert wird in `.limen/meta.yaml`, nicht im Deskriptor. Das ist keine
-Kosmetik: `limen.yaml` ist maschinenlokal und gitignoriert, `meta.yaml` ist
-Repository-Inhalt. Welche Normen ein Projekt erbt, ist eine Eigenschaft des
-Projekts, nicht des Laptops, auf dem es ausgecheckt wurde.
+The declaration goes in `.limen/meta.yaml`, not in the descriptor. That is not
+cosmetic: `limen.yaml` is machine-local and gitignored, `meta.yaml` is
+repository content. Which norms a project inherits is a property of the project,
+not of the laptop it was checked out on.
 
 ```yaml
 # .limen/meta.yaml
 profiles: levara-baseline@1.0.0
-skillTarget: .claude/skills      # Vorgabe
-adrTarget: docs/adr              # Vorgabe
+skillTarget: .claude/skills      # default
+adrTarget: docs/adr              # default
 ```
 
 ```bash
-limen profile          # was gilt hier, ist es aktuell
-limen profile sync     # Skills und ADRs ins Projekt schreiben, --dry-run zeigt nur
-limen profile check    # Exit 1 bei Abweichung — für pre-commit oder CI
-limen profile list     # was im Speicher liegt
+limen profile          # what applies here, is it current
+limen profile sync     # write skills and ADRs into the project, --dry-run only shows
+limen profile check    # exit 1 on drift — for pre-commit or CI
+limen profile list     # what the store holds
 ```
 
-Die Paarung ADR + Skill ist der Punkt: **das ADR ist das Warum, der Skill das
-Wie.** Ein ADR wird gelesen, wenn jemand eine Regel in Frage stellt; ein Skill
-wirkt, ohne dass ihn jemand liest. Nur Skills auszuliefern hinterlässt Normen,
-über die man nicht streiten kann, nur ADRs solche, an die sich niemand hält.
+The pairing of ADR and skill is the point: **the ADR is the why, the skill is
+the how.** An ADR is read when someone questions a rule; a skill acts without
+anyone reading it. Shipping only skills leaves norms nobody can argue with;
+shipping only ADRs leaves norms nobody follows.
 
-### Warum eine Lock-Datei
+### Why a lock file
 
-`sync` schreibt `.limen/profiles.lock` — Version, Herkunft und **ein SHA-256 je
-Datei**:
+`sync` writes `.limen/profiles.lock` — version, origin and **a SHA-256 per
+file**:
 
 ```json
 { "version": 1, "profiles": { "levara-baseline": {
@@ -207,184 +202,181 @@ Datei**:
   "files": { ".claude/skills/levara-english/SKILL.md": "sha256:6ee2a868…" } } } }
 ```
 
-Erst damit ist `check` eine Aussage statt einer Vermutung: eine Norm, die
-jemand im Projekt zurechtgebogen hat, fällt auf, ohne dass jemand die Datei
-noch einmal liest. Die Herkunft kommt aus dem `repository`-Feld des Pakets,
-damit Limen kein zweites Verzeichnis von Quellen führt, das der `plugin.json`
-widersprechen könnte.
+Only that makes `check` a statement rather than a guess: a norm someone bent
+inside the project shows up without anyone having to read the file again. The
+origin comes from the package's own `repository` field, so Limen keeps no second
+registry of sources that could contradict the `plugin.json`.
 
-`sync` **entfernt** auch: was ein Profil nicht mehr trägt oder was aus
-`meta.yaml` verschwunden ist, wird gelöscht und die leer gewordenen
-Verzeichnisse dazu. Eine zurückgezogene Norm, die liegen bleibt, ist schlimmer
-als eine, die nie da war — der Agent befolgt dann weiter eine Regel, die
-niemand mehr vertritt.
+`sync` also **removes**: whatever a profile no longer carries, or has vanished
+from `meta.yaml`, is deleted along with the directories that went empty. A
+withdrawn norm left lying around is worse than one that was never there — the
+agent goes on obeying a rule nobody holds any more.
 
-### Nichts davon läuft im Hook
+### None of it runs in the hook
 
-`limen shell` kostet 5,6 ms, weil es kein Netz anfasst und keine Dateien
-kopiert. Ein Profil wird durch ein ausdrückliches Verb materialisiert, nie
-durch einen Schwellengang. Das ist dieselbe Schranke, wegen der es dieses
-Werkzeug überhaupt gibt.
+`limen shell` costs 5.6 ms because it touches no network and copies no files. A
+profile is materialised by an explicit verb, never by crossing a threshold. That
+is the same constraint this tool exists for in the first place.
 
-### `meta.yaml` kann keine Identität setzen
+### `meta.yaml` cannot set identity
 
-Gelesen wird sie durch denselben flachen Parser wie der Deskriptor, aber über
-einen **eigenen Zweig** — wie `service.yaml`, und aus einem schärferen Grund:
-`meta.yaml` ist eingecheckt. Könnte sie `actor:` oder `githubUser:` setzen,
-würde ein geklontes Repository bestimmen, wer der ist, der es geöffnet hat.
-Genommen werden nur `profiles:`, `skillTarget:` und `adrTarget:`.
+It is read by the same flat parser as the descriptor, but through its **own
+branch** — like `service.yaml`, and for a sharper reason: `meta.yaml` is
+committed. If it could set `actor:` or `githubUser:`, a cloned repository would
+decide who the person opening it is. Only `profiles:`, `skillTarget:` and
+`adrTarget:` are taken.
 
-## Register und Notizen — Kontexte als Ankerpunkte für Agenten
+## Registry and notes — contexts as anchor points for agents
 
-`Discover` sucht nur aufwärts; ein Agent, der eine Sprachnotiz „ergänze Design
-Thinking in der Produktstrategie" zustellen soll, braucht die Gegenrichtung:
-alle Kontexte dieser Maschine. Das ist das Register — eine Zeile je Wurzel in
-`~/.local/state/limen/roots` (bzw. `$XDG_STATE_HOME/limen/roots`). Gefüttert
-wird es vom Shell-Hook: jeder Schwellengang registriert die Wurzel einmalig,
-ohne dass jemand einen Index pflegt. Bäume, die man nie per Shell betritt,
-nimmt `limen register <pfad…>` auf. Verschwundene Wurzeln fallen beim nächsten
-`limen list` still heraus.
+`Discover` only searches upward; an agent that has to deliver a voice note
+"add design thinking to the product strategy" needs the opposite direction:
+every context on this machine. That is the registry — one line per root in
+`~/.local/state/limen/roots` (or `$XDG_STATE_HOME/limen/roots`). It is fed by
+the shell hook: every crossing registers the root once, without anyone
+maintaining an index. Trees you never enter by shell are taken in by
+`limen register <path…>`. Roots that have vanished quietly drop out at the next
+`limen list`.
 
 ```bash
 limen list --json
-# [{"root":"/Users/…/produktstrategie","label":"produktstrategie",
-#   "purpose":"Produktstrategie — …","topics":["design-thinking","…"],
+# [{"root":"/Users/…/product-strategy","label":"product-strategy",
+#   "purpose":"Product strategy — …","topics":["design-thinking","…"],
+#   "profiles":[{"name":"levara-baseline","version":"1.0.0"}],
 #   "source":"limen"}]
 ```
 
-Die Ausgabe trägt Ort und Bedeutung, nie Identität oder Schlüsselzustand — sie
-ist das Routing-Inventar, nicht die Konfiguration.
+The output carries location and meaning, never identity or key state — it is the
+routing inventory, not the configuration.
 
-Die Arbeitsteilung ist bewusst: **Limen liefert Inventar und Mechanik, das
-Zuordnen bleibt beim Agenten.** Der ruft `limen list --json` auf, matcht die
-Notiz semantisch gegen `purpose`/`topics`, und stellt sie zu:
+The division of labour is deliberate: **Limen supplies inventory and mechanics,
+the matching stays with the agent.** It calls `limen list --json`, matches the
+note semantically against `purpose`/`topics`, and delivers it:
 
 ```bash
-limen note "Kundenbedürfnisse pro Journey-Phase explizit aufschreiben"
-limen note --at produktstrategie "…"    # von überall, über das Register
+limen note "write down customer needs per journey phase explicitly"
+limen note --at product-strategy "…"    # from anywhere, via the registry
 ```
 
-Das landet datiert in `.limen/notes.md` — dem rollierenden Freitext-Begleiter
-des Deskriptors:
+That lands dated in `.limen/notes.md` — the rolling free-text companion to the
+descriptor:
 
 ```markdown
 ## 2026-08-11
-- Kundenbedürfnisse pro Journey-Phase explizit aufschreiben
+- write down customer needs per journey phase explicitly
 ```
 
-Die Trennung ist der Punkt: der Deskriptor bleibt harte Wahrheit — Identität,
-Schnittstellen, Routing — und wird von Werkzeugen **nie** beschrieben. Lose
-Gedanken, Ideen und Backlog wandern nach `.limen/notes.md`, nur angehängt, nie
-umgeschrieben. Und anders als der Deskriptor sind `notes.md` und `meta.yaml`
-Projektinhalt, kein Maschinenzustand: sie **gehören** ins Repository.
+The separation is the point: the descriptor stays hard truth — identity,
+interfaces, routing — and is **never** written by tools. Loose thoughts, ideas
+and backlog move to `.limen/notes.md`, appended only, never rewritten. And
+unlike the descriptor, `notes.md` and `meta.yaml` are project content, not
+machine state: they **belong** in the repository.
 
-Die Gegenrichtung — *wo* ist etwas offen? — beantwortet `limen backlog`: es
-läuft übers Register, liest jede `notes.md` und listet alles Unabgehakte,
-mit Pfad zum Reinwechseln:
+The opposite direction — *where* is something open? — is answered by
+`limen backlog`: it runs over the registry, reads every `notes.md` and lists
+everything unchecked, with the path to `cd` into:
 
 ```
-produktstrategie — 1 offen
-  /Users/…/Produktmanagement/Produktstrategie
-  2026-08-11  Design Thinking: Kundenbedürfnisse pro Journey-Phase …
+product-strategy — 1 open
+  /Users/…/ProductManagement/ProductStrategy
+  2026-08-11  Design thinking: customer needs per journey phase …
 ```
 
-**Abhaken** ist das eine erlaubte In-Place-Edit im Log: aus `- …` wird
-`- ✓ …`, sonst ändert sich nichts. `backlog` zählt abgehakte Zeilen mit
-(`--json` trägt sie als `done`), zeigt sie aber nicht mehr als offen. Wer
-etwas erledigt — Mensch oder Agent — hakt die Zeile ab und hängt bei Bedarf
-eine datierte Folge-Notiz an, was wo eingearbeitet wurde.
+**Checking off** is the one in-place edit the log allows: `- …` becomes
+`- ✓ …`, nothing else changes. `backlog` counts checked lines (`--json` carries
+them as `done`) but stops showing them as open. Whoever finishes something —
+human or agent — checks the line off and, where useful, appends a dated
+follow-up note saying what was worked in where.
 
-## `.limen/limen.yaml` gehört nicht ins Repository
+## `.limen/limen.yaml` does not belong in the repository
 
-Der Deskriptor trägt maschinenlokale Identität — `githubUser`,
-`claudeConfigDir`, `gcloudAccount` — und kann versehentlich einen `apiKey`
-enthalten. Eingecheckt verteilt er den Zustand *einer* Maschine an alle.
-Ignoriert wird deshalb **nur die Datei**, nie das ganze `.limen/`-Verzeichnis —
-`notes.md` und `meta.yaml` sollen ja committet werden.
+The descriptor carries machine-local identity — `githubUser`,
+`claudeConfigDir`, `gcloudAccount` — and can accidentally hold an `apiKey`.
+Committed, it distributes the state of *one* machine to everyone. What is
+ignored is therefore **only the file**, never the whole `.limen/` directory —
+`notes.md` and `meta.yaml` are meant to be committed.
 
-`limen init` und `limen migrate` erledigen das selbst, in dieser Reihenfolge:
+`limen init` and `limen migrate` handle that themselves, in this order:
 
-1. Existiert eine `.gitignore`, wird `.limen/limen.yaml` dort eingetragen —
-   idempotent, vorhandener Inhalt bleibt; `migrate` biegt einen alten
-   `.limen.yaml`-Eintrag auf den neuen Pfad um.
-2. Existiert keine, wird **keine angelegt.** Eine `.gitignore` ist eingecheckter
-   Inhalt; eine anzulegen, nur um eine *nicht* eingecheckte Datei zu verstecken,
-   fügt dem Repository etwas hinzu, das nicht dazugehört. Stattdessen bekommt
-   `.git/info/exclude` den Eintrag — dieselbe Wirkung, pro Arbeitskopie, nichts
-   zu committen.
-3. Gibt es kein `.git`, passiert nichts: ohne Repository kann nichts
-   versehentlich eingecheckt werden.
+1. If a `.gitignore` exists, `.limen/limen.yaml` is entered there —
+   idempotently, existing content stays; `migrate` bends an old `.limen.yaml`
+   entry onto the new path.
+2. If none exists, **none is created.** A `.gitignore` is committed content;
+   creating one just to hide a file that is *not* committed adds something to
+   the repository that does not belong there. Instead `.git/info/exclude` gets
+   the entry — same effect, per working copy, nothing to commit.
+3. If there is no `.git`, nothing happens: without a repository nothing can be
+   committed by accident.
 
-Nachprüfbar ist das mit git selbst, nicht mit einem Blick in die Datei:
+You verify that with git itself, not by looking at the file:
 
 ```bash
 git check-ignore -v .limen/limen.yaml
 ```
 
-## Schlüssel
+## Keys
 
-Limen liest den Schlüssel **nie** aus der Konfigurationsdatei. Auflösung:
-`ANTHROPIC_API_KEY` aus der Umgebung, dann der macOS-Schlüsselbund
-(`keychainService` / `keychainAccount`, letzteres fällt auf `actor` zurück).
-Nur `limen shell` gibt ihn aus, weil das sein Zweck ist — `show`, `json` und
-`prompt` zeigen ihn nie. Bei `provider != anthropic` wird gar nicht gesucht.
+Limen **never** reads the key from the configuration file. Resolution order:
+`ANTHROPIC_API_KEY` from the environment, then the macOS keychain
+(`keychainService` / `keychainAccount`, the latter falling back to `actor`).
+Only `limen shell` prints it, because that is its purpose — `show`, `json` and
+`prompt` never show it. With `provider != anthropic` no lookup happens at all.
 
-Steht doch ein `apiKey:` in der Datei, wird das als Warnzeichen behandelt:
-`show` warnt, `json` setzt `api_key_in_config: true`, `prompt` hängt
-`!key-in-config` an. Verschieben:
+If an `apiKey:` does sit in the file, that is treated as a warning sign: `show`
+warns, `json` sets `api_key_in_config: true`, `prompt` appends
+`!key-in-config`. To move it:
 
 ```bash
-limen keychain-import   # legt ihn im Schlüsselbund ab
-                        # danach die Zeile apiKey: löschen
+limen keychain-import   # stores it in the keychain
+                        # afterwards delete the apiKey: line
 ```
 
 ## WezTerm
 
-Die Statuszeile oben rechts, die vorher `orca env json` fütterte, wird jetzt von
-`limen json` gefüttert. Gleiche Stelle, gleiche Information, ohne den 15-Sekunden-Cache.
+The status line in the top right, previously fed by `orca env json`, is now fed
+by `limen json`. Same place, same information, without the 15-second cache.
 
 ```bash
-make install-wezterm     # symlinkt integrations/wezterm-limen.lua nach ~/.config/wezterm
+make install-wezterm     # symlinks integrations/wezterm-limen.lua into ~/.config/wezterm
 ```
 
-Dann in `~/.config/wezterm/wezterm.lua`:
+Then in `~/.config/wezterm/wezterm.lua`:
 
 ```lua
 local limen = require 'wezterm-limen'
--- WezTerm erbt deinen Shell-PATH nicht. Falls limen dort nicht liegt:
--- limen.bin = '/Users/du/.local/bin/limen'
+-- WezTerm does not inherit your shell PATH. If limen is not there:
+-- limen.bin = '/Users/you/.local/bin/limen'
 limen.apply(config)
 ```
 
-Was gezeichnet wird:
+What gets drawn:
 
-| Stelle | Inhalt |
+| Place | Content |
 |---|---|
-| Tab-Titel | farbiges `label`, Farbe aus `M.palette` (Präfix genügt) |
-| oben rechts | `actor · model · gh:… · gcp:… · gw · !key-in-config` |
-| ohne Kontext | gedimmtes `no limen — limen init` |
+| tab title | coloured `label`, colour from `M.palette` (a prefix suffices) |
+| top right | `actor · model · gh:… · gcp:… · gw · !key-in-config` |
+| without a context | dimmed `no limen — limen init` |
 
-Leere Felder entfallen, es bleiben keine Trennzeichen stehen. `gw` erscheint,
-wenn das Projekt über ein lokales Nuncio läuft — dann gehört die Modellroute zum
-Projekt und nicht zur Shell. `!key-in-config` erscheint **nur** bei einem
-Klartextschlüssel in der Datei; ein auflösbarer Schlüssel aus Umgebung oder
-Schlüsselbund ist keine Warnung.
+Empty fields fall away, leaving no stray separators. `gw` appears when the
+project runs through a local Nuncio — then the model route belongs to the
+project and not to the shell. `!key-in-config` appears **only** for a plaintext
+key in the file; a resolvable key from the environment or the keychain is not a
+warning.
 
-Die Farbe wird zuerst exakt, dann über das **längste passende Präfix** gesucht.
-Das ist nötig, nicht bequem: `label` ist bei Legacy-Projekten der
-Verzeichnisname, also `circlead-platform` statt `circlead` — ohne Präfixsuche
-bekämen alle Projekte dasselbe Standard-Violett, was schlechter wäre als der
-Vorgänger, der nach Circle-Namen färbte. `leviathan` bleibt absichtlich beim
-Standard: es teilt nur „lev" mit `levara` und ist ein anderes Projekt. Eigene
-Einträge in `M.palette` ergänzen.
+The colour is looked up exactly first, then by the **longest matching prefix**.
+That is necessary, not convenient: for legacy projects `label` is the directory
+name, so `circlead-platform` rather than `circlead` — without prefix matching
+every project would get the same default violet, which would be worse than the
+predecessor that coloured by circle name. `leviathan` deliberately keeps the
+default: it shares only "lev" with `levara` and is a different project. Add your
+own entries to `M.palette`.
 
-Migration vom Vorgänger: `circles[1]` → `label`, `actor_name` → `actor`,
-`!key-in-repo` → `!key-in-config`. `circles` kam aus dem Organisationsmodell,
-das mit Orca weggefallen ist; `label` ersetzt es und fällt auf den
-Verzeichnisnamen zurück.
+Migration from the predecessor: `circles[1]` → `label`, `actor_name` → `actor`,
+`!key-in-repo` → `!key-in-config`. `circles` came from the organisational model,
+which went away with Orca; `label` replaces it and falls back to the directory
+name.
 
-Getestet wird das Modul in **WezTerms eigener Lua-Runtime** — einen
-eigenständigen Lua-Interpreter braucht es dafür nicht:
+The module is tested in **WezTerm's own Lua runtime** — no standalone Lua
+interpreter is needed for it:
 
 ```bash
 make test-wezterm
@@ -393,114 +385,115 @@ make test-wezterm
 ```
   ok    module loads
   ok    apply() is callable from a real config
-  ok    LIMEN-SELFTEST-OK 25 checks passed
+  ok    LIMEN-SELFTEST-OK 31 checks passed
   ok    a broken module is detected (negative control)
   ok    limen json carries every field the module reads
   ok    limen json outside a project is {} as the module assumes
 ```
 
-Die Negativkontrolle ist Absicht: sie baut ein absichtlich kaputtes Modul und
-verlangt, dass WezTerm das meldet. Ohne sie könnten die Prüfungen darüber
-bestehen, indem nie etwas ausgeführt wird.
+The negative control is deliberate: it builds a knowingly broken module and
+demands that WezTerm report it. Without it, the checks above could pass by never
+executing anything.
 
-## GitHub-Account mitschalten
+## Switching the GitHub account along
 
-Limen ruft `gh auth switch` nicht selbst — ein Werkzeug, das bei jedem `cd`
-läuft, soll keine fremden Zustände umschalten. Wer es will, hängt es an:
+Limen does not call `gh auth switch` itself — a tool that runs on every `cd`
+should not toggle other people's state. Whoever wants it appends it:
 
 ```bash
-# in .zshrc, nach dem Hook
+# in .zshrc, after the hook
 _limen_gh() { [[ -n "$LIMEN_GH_USER" ]] && gh auth switch --user "$LIMEN_GH_USER" >/dev/null 2>&1; }
 add-zsh-hook chpwd _limen_gh
 ```
 
-## Rückwärtskompatibilität
+## Backwards compatibility
 
-Ohne `.limen.yaml` liest Limen ein vorhandenes `.orca/identity.yaml` plus
-`.orca/config.yaml` und übernimmt `name` (als actor), `provider`, `model`,
-`githubUser`, `claudeConfigDir`, `gcloudAccount`, `gcloudProject`. Bestehende
-Projekte funktionieren also ohne Migrationsschritt weiter; `limen show` weist
-die Herkunft als `.orca/ (legacy)` aus. Liegen beide Dateien vor, gewinnt
-`.limen.yaml`.
+Without a `.limen.yaml`, Limen reads an existing `.orca/identity.yaml` plus
+`.orca/config.yaml` and takes over `name` (as actor), `provider`, `model`,
+`githubUser`, `claudeConfigDir`, `gcloudAccount`, `gcloudProject`. Existing
+projects therefore keep working without a migration step; `limen show` reports
+the origin as `.orca/ (legacy)`. If both files are present, `.limen.yaml` wins.
 
-### Umstellen mit `limen migrate`
+### Switching over with `limen migrate`
 
 ```bash
-limen migrate --dry-run ~/Documents/GitHub/*/   # zeigt nur
-limen migrate ~/Documents/GitHub/*/             # schreibt
+limen migrate --dry-run ~/Documents/GitHub/*/   # only shows
+limen migrate ~/Documents/GitHub/*/             # writes
 ```
 
-Ein vorhandenes `.limen.yaml` wird **nie** überschrieben. Was `migrate` tut,
-hängt daran, was es findet:
+An existing `.limen.yaml` is **never** overwritten. What `migrate` does depends
+on what it finds:
 
-| Vorgefunden | Ergebnis |
+| Found | Result |
 |---|---|
-| `.orca/` | alle Felder wörtlich übernommen, die Anzeige bleibt identisch |
-| `.orca/` mit `apiKey` | Schlüssel **nicht** übernommen, dafür ein Hinweis auf `limen keychain-import` |
-| nichts | nur `label` (der Verzeichnisname), Rest leer |
+| `.orca/` | every field taken over verbatim, the display stays identical |
+| `.orca/` with `apiKey` | key **not** taken over, a pointer to `limen keychain-import` instead |
+| nothing | only `label` (the directory name), the rest empty |
 
-Der Schlüssel wird bewusst nicht mitkopiert: er stünde dann im Klartext in
-*zwei* Dateien statt in keiner.
+The key is deliberately not copied along: it would then sit in plaintext in
+*two* files instead of none.
 
-Geraten wird nichts. Insbesondere wird der Besitzer des `origin`-Remotes **nicht**
-als `githubUser` eingetragen, sondern nur als Kommentar angeboten. Gegen die fünf
-Projekte geprüft, deren echter Wert aus `.orca/` bekannt war, lag er in vier
-daneben: der Remote gehört oft einer Organisation (`LevaraOrg`), dieselbe Person
-nutzt je Projekt verschiedene Konten (`levaraleo`, `tgmatthias`), und bei einem
-Fork ist es jemand ganz anderes (`palamim`). Ein falscher Kontoname in der
-Statuszeile ist schlimmer als keiner — Arbeits- von Privat-Checkout zu
-unterscheiden ist die ganze Aufgabe dieses Feldes.
+Nothing is guessed. In particular the owner of the `origin` remote is **not**
+entered as `githubUser`, only offered as a comment. Checked against the five
+projects whose real value was known from `.orca/`, it was wrong in four: the
+remote often belongs to an organisation (`LevaraOrg`), the same person uses
+different accounts per project (`levaraleo`, `tgmatthias`), and for a fork it is
+someone else entirely (`palamim`). A wrong account name in the status line is
+worse than none — telling a work checkout from a private one is this field's
+entire job.
 
-Dass die Umstellung die Anzeige nicht verändert, prüfst du selbst:
+That the switch does not change the display is something you verify yourself:
 
 ```bash
-for d in ~/Documents/GitHub/*/; do (cd "$d" && printf '%-30s %s\n' "$(basename $d)" "$(limen prompt)"); done > /tmp/vorher.txt
+for d in ~/Documents/GitHub/*/; do (cd "$d" && printf '%-30s %s\n' "$(basename $d)" "$(limen prompt)"); done > /tmp/before.txt
 limen migrate ~/Documents/GitHub/*/
-# dieselbe Schleife nach /tmp/nachher.txt, dann:
-diff /tmp/vorher.txt /tmp/nachher.txt
+# the same loop into /tmp/after.txt, then:
+diff /tmp/before.txt /tmp/after.txt
 ```
 
-Erwartet: Projekte mit `.orca/` erscheinen unverändert, Projekte ohne Kontext
-zeigen neu ihr Label. So gemessen am 10.08.2026 über 26 Repositories.
+Expected: projects with `.orca/` appear unchanged, projects without a context
+newly show their label. Measured that way on 2026-08-10 across 26 repositories.
 
 ## Tests
 
 ```bash
-make test          # Go-Tests plus das WezTerm-Modul
-make test-go       # nur Go
-make test-wezterm  # nur das Lua-Modul, in WezTerms Runtime
-make test-v        # verbose, zeigt welches Verhalten geprüft wird
-make cover         # Abdeckung
-make bench         # die Messung aus der Tabelle oben, auf deiner Maschine
+make test          # Go tests plus the WezTerm module
+make test-go       # Go only
+make test-wezterm  # the Lua module only, in WezTerm's runtime
+make test-v        # verbose, shows which behaviour is being checked
+make cover         # coverage
+make bench         # the measurement from the table above, on your machine
 ```
 
-**111 Testfälle** — Unit-Tests für Parser, Auflösung und Ausgabe, plus
-Integrationstests, die das gebaute Binary in echten Verzeichnissen ausführen.
-Der Schlüsselbund wird nie berührt: die Lookup-Funktion ist injizierbar, und die
-CLI-Tests belegen mit einem `PATH=/nonexistent`, dass `prompt` ohne
-`security(1)` auskommt.
+**111 test cases** — unit tests for the parser, resolution and output, plus
+integration tests that run the built binary in real directories. The keychain is
+never touched: the lookup function is injectable, and the CLI tests prove with a
+`PATH=/nonexistent` that `prompt` gets by without `security(1)`.
 
-Was die Tests festnageln, weil es das ist, was in einer `.zshrc` weh tut:
+What the tests pin down, because it is what hurts inside a `.zshrc`:
 
-- `limen shell` bleibt ohne Kontext **still** und endet mit **0** — sonst wäre
-  der bedingungslose Aufruf aus einer Startdatei nicht möglich
-- die Ausgabe von `shell` übersteht ein echtes `eval` in `/bin/sh`, inklusive
-  eines Wertes mit Apostroph
-- der Klartextschlüssel taucht in `show`, `json` und `prompt` **nicht** auf
-- der Hook-Text ist syntaktisch gültiges bash bzw. zsh (`bash -n`, `zsh -n`)
-- ein zweites `limen init` überschreibt die Identitätsdatei **nicht**
+- `limen shell` stays **silent** without a context and exits **0** — otherwise
+  the unconditional call from a startup file would not be possible
+- the output of `shell` survives a real `eval` in `/bin/sh`, including a value
+  with an apostrophe
+- the plaintext key does **not** appear in `show`, `json` or `prompt`
+- the hook text is syntactically valid bash resp. zsh (`bash -n`, `zsh -n`)
+- a second `limen init` does **not** overwrite the identity file
+- `meta.yaml` cannot set identity, however a repository writes it
 
-## Aufbau
+## Layout
 
 ```
-main.go        CLI-Verteilung, Exit-Codes
-context.go     Aufwärtssuche, flacher YAML-Parser, Context
-keychain.go    Auflösungsreihenfolge, security(1), injizierbar für Tests
+main.go        CLI dispatch, exit codes
+context.go     upward search, flat YAML parser, Context
+meta.go        .limen/meta.yaml — profiles and targets, its own key switch
+profile.go     store, Agent Plugins package, sync/check, the lock
+keychain.go    resolution order, security(1), injectable for tests
 render.go      show / json / shell / prompt
-commands.go    init, keychain-import, Shell-Hooks
+commands.go    init, keychain-import, shell hooks
 integrations/
-  wezterm-limen.lua  WezTerm-Statuszeile und Tab-Titel
-  selftest.lua       Prüfungen, die WezTerms Lua-Runtime ausführt
-  test.sh            Testtreiber inklusive Negativkontrolle
-scripts/bench.sh     die Messung
+  wezterm-limen.lua  WezTerm status line and tab title
+  selftest.lua       checks that WezTerm's Lua runtime executes
+  test.sh            test driver including the negative control
+scripts/bench.sh     the measurement
 ```

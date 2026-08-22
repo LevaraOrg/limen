@@ -25,7 +25,7 @@ func CmdNote(w io.Writer, ctx *Context, found bool, args []string, now time.Time
 	for i := 0; i < len(args); i++ {
 		if args[i] == "--at" {
 			if i+1 >= len(args) {
-				return fmt.Errorf("--at braucht ein Label")
+				return fmt.Errorf("--at needs a label")
 			}
 			atLabel = args[i+1]
 			i++
@@ -35,7 +35,7 @@ func CmdNote(w io.Writer, ctx *Context, found bool, args []string, now time.Time
 	}
 	text := strings.TrimSpace(strings.Join(words, " "))
 	if text == "" {
-		return fmt.Errorf("keine Notiz angegeben:  limen note [--at label] \"text\"")
+		return fmt.Errorf("no note given:  limen note [--at label] \"text\"")
 	}
 
 	target := ctx
@@ -45,14 +45,14 @@ func CmdNote(w io.Writer, ctx *Context, found bool, args []string, now time.Time
 			return err
 		}
 	} else if !found {
-		return fmt.Errorf("kein Kontext oberhalb des Arbeitsverzeichnisses — Ziel mit --at <label> wählen")
+		return fmt.Errorf("no context above the working directory — pick a target with --at <label>")
 	}
 
 	path := target.NotesFile()
 	if err := appendNote(path, target.Label, text, now); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "notiert in %s\n", path)
+	fmt.Fprintf(w, "noted in %s\n", path)
 	return nil
 }
 
@@ -76,15 +76,15 @@ func contextByLabel(label string) (*Context, error) {
 		return matches[0], nil
 	case 0:
 		if len(known) == 0 {
-			return nil, fmt.Errorf("kein Kontext %q — das Register ist leer, erst  limen register <pfad>", label)
+			return nil, fmt.Errorf("no context %q — the registry is empty; run  limen register <path>  first", label)
 		}
-		return nil, fmt.Errorf("kein Kontext %q — registriert sind: %s", label, strings.Join(known, ", "))
+		return nil, fmt.Errorf("no context %q — registered are: %s", label, strings.Join(known, ", "))
 	default:
 		roots := []string{}
 		for _, m := range matches {
 			roots = append(roots, m.Root)
 		}
-		return nil, fmt.Errorf("Label %q ist mehrdeutig: %s", label, strings.Join(roots, ", "))
+		return nil, fmt.Errorf("label %q is ambiguous: %s", label, strings.Join(roots, ", "))
 	}
 }
 

@@ -132,16 +132,16 @@ func CmdRegister(w io.Writer, dirs []string, cwd string) error {
 		}
 		ctx, ok := Discover(abs)
 		if !ok {
-			return fmt.Errorf("kein .limen.yaml und kein .orca/ oberhalb von %s", abs)
+			return fmt.Errorf("no .limen.yaml and no .orca/ above %s", abs)
 		}
 		added, err := RegisterRoot(ctx.Root)
 		if err != nil {
 			return err
 		}
 		if added {
-			fmt.Fprintf(w, "registriert: %s (%s)\n", ctx.Root, ctx.Label)
+			fmt.Fprintf(w, "registered: %s (%s)\n", ctx.Root, ctx.Label)
 		} else {
-			fmt.Fprintf(w, "bereits registriert: %s (%s)\n", ctx.Root, ctx.Label)
+			fmt.Fprintf(w, "already registered: %s (%s)\n", ctx.Root, ctx.Label)
 		}
 	}
 	return nil
@@ -191,8 +191,8 @@ func CmdList(w io.Writer, jsonOut bool) error {
 	}
 
 	if len(ctxs) == 0 {
-		fmt.Fprintln(w, "Keine Kontexte registriert. Der Shell-Hook registriert beim Betreten;")
-		fmt.Fprintln(w, "sofort:  limen register <pfad…>")
+		fmt.Fprintln(w, "No contexts registered. The shell hook registers on entry;")
+		fmt.Fprintln(w, "right now:  limen register <path…>")
 		return nil
 	}
 	width := 0

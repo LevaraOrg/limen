@@ -115,13 +115,13 @@ func RenderShow(w io.Writer, c *Context, r KeyResolver) {
 	case c.Source == SourceOrca:
 		fmt.Fprintln(w, "source:       .orca/ (legacy)")
 	case c.flatFile:
-		fmt.Fprintln(w, "source:       .limen.yaml (alt — `limen migrate` hebt nach .limen/)")
+		fmt.Fprintln(w, "source:       .limen.yaml (old — `limen migrate` lifts it into .limen/)")
 	default:
 		fmt.Fprintln(w, "source:       .limen/limen.yaml")
 	}
 	if c.HasPlaintextKey() {
-		fmt.Fprintln(w, "\nWarnung: ein Klartextschlüssel steht noch in der Konfiguration.")
-		fmt.Fprintln(w, "Verschieben:  limen keychain-import")
+		fmt.Fprintln(w, "\nWarning: a plaintext key is still sitting in the configuration.")
+		fmt.Fprintln(w, "Move it:      limen keychain-import")
 	}
 }
 

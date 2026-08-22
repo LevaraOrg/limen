@@ -1,13 +1,13 @@
-# limen — die committete Hälfte des Kontexts.
+# limen — the committed half of the context.
 #
-# Der Deskriptor daneben (limen.yaml) ist maschinenlokal und gitignoriert: er
-# sagt, wer du hier bist. Diese Datei sagt, woran das Projekt gebunden ist, und
-# ist für jeden Klon dieselbe. Werkzeuge dürfen sie lesen, nie Identität daraus
-# setzen — siehe meta.go.
+# The descriptor next to it (limen.yaml) is machine-local and gitignored: it
+# says who you are here. This file says what the project is bound to, and is
+# the same for everyone who clones the repository. Tools may read it, never
+# derive identity from it — see meta.go.
 
-# Geerbte Normen. Ein Paket nach agent-plugins.org, gepinnt auf eine Version.
+# Inherited norms. An agent-plugins.org package, pinned to a version.
 profiles: levara-baseline@1.0.0
 
-# Wohin `limen profile sync` materialisiert. Beides hat Vorgaben
-# (.claude/skills und docs/adr); hier steht nur, was abweicht.
+# Where `limen profile sync` materialises them. Both have defaults
+# (.claude/skills and docs/adr); only the deviation is written here.
 adrTarget: docs/adr

@@ -1,27 +1,36 @@
 # limen
 
-Kontext und Identität pro Verzeichnis — ein Go-Binary mit Deskriptor (.limen.yaml), Register und rollierenden Notizen als Ankerpunkt für Agenten
+Context and identity per directory — a Go binary with a descriptor
+(`.limen/limen.yaml`), a registry and rolling notes as an anchor point for
+agents.
 
-## Heimat & Identität (LevaraOrg)
+## Home and identity (LevaraOrg)
 
-- GitHub-Heimat: https://github.com/LevaraOrg/limen — Organisation **LevaraOrg** (umgezogen von `matthiaw` am 18.08.2026; alte URLs leiten weiter).
-- Die Arbeitsidentität dieses Verzeichnisses kommt aus `.limen/limen.yaml` (Werkzeug: limen): githubUser `levaraleo`, actor Matthias, Claude-Config `~/.claude-levara`.
-- Zweck laut Limen: Kontext und Identität pro Verzeichnis — ein Go-Binary mit Deskriptor (.limen.yaml), Register und rollierenden Notizen als Ankerpunkt für Agenten
+- GitHub home: https://github.com/LevaraOrg/limen — organisation **LevaraOrg**
+  (moved from `matthiaw` on 2026-08-18; old URLs redirect).
+- The working identity of this directory comes from `.limen/limen.yaml` (tool:
+  limen): githubUser `levaraleo`, actor Matthias, Claude config
+  `~/.claude-levara`.
 
-## Geerbte Normen
+## Inherited norms
 
-Dieses Verzeichnis erbt `levara-baseline@1.0.0` (siehe `.limen/meta.yaml`).
-Die Skills liegen materialisiert in `.claude/skills/`, die Begründungen als
-ADRs in `docs/adr/`. Kurz:
+This directory inherits `levara-baseline@1.0.0` (see `.limen/meta.yaml`). The
+skills are materialised in `.claude/skills/`, the reasoning as ADRs in
+`docs/adr/`. In short:
 
-- **ADR-0001** — alles Eingecheckte ist Englisch (Code, Kommentare, Doku,
-  Commit-Messages, Testnamen). Das Gespräch bleibt Deutsch.
-- **ADR-0002** — testgetrieben: erst der fallende Test, dann der kleinste Code,
-  der ihn grün macht. Bugfixes sind nie ausgenommen.
-- **ADR-0003** — tokensparsam: das billigste Werkzeug, das die Frage beantwortet;
-  nie auf Kosten der Vollständigkeit.
+- **ADR-0001** — everything committed is English: code, comments, documentation,
+  commit messages, test names, CLI output and error strings. Conversation with
+  the user stays in whatever language they write.
+- **ADR-0002** — test-driven: the failing test first, then the least code that
+  makes it pass. Bug fixes are never exempt.
+- **ADR-0003** — token-frugal: the cheapest tool that answers the question,
+  never at the cost of completeness.
 
-`limen profile check` belegt, dass die Kopien unverändert sind — Exit 1 bei
-Abweichung. Nicht die Dateien in `.claude/skills/` oder `docs/adr/` von Hand
-bearbeiten: sie werden von `limen profile sync` überschrieben. Eine Norm ändert
-man im Paket (`~/Documents/GitHub/levara-baseline`) und zieht die Version hoch.
+`limen profile check` proves the copies are unchanged — exit 1 on drift. Do not
+edit the files under `.claude/skills/` or `docs/adr/` by hand: `limen profile
+sync` overwrites them. A norm is changed in the package
+(`~/Documents/GitHub/levara-baseline`) and its version raised.
+
+Note that limen's own user-facing output is English too, deliberately. ADR-0001
+covers error strings, and a tool with an English README and German error
+messages would be the mixed state the norm exists to prevent.

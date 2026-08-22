@@ -9,12 +9,12 @@ import (
 	"strings"
 )
 
-const initTemplate = `# limen — Kontext dieses Verzeichnisbaums.
-# Flaches YAML: ein key: value je Zeile. Alle Felder sind optional.
+const initTemplate = `# limen — the context of this directory tree.
+# Flat YAML: one key: value per line. Every field is optional.
 label: %s
 
-# Wofür dieser Baum da ist, in einer Zeile — Agenten ordnen darüber Notizen
-# und Aufgaben zu (limen list, limen note). topics: kommagetrennt.
+# What this tree is for, in one line — agents route notes and tasks by it
+# (limen list, limen note). topics: is comma-separated.
 purpose:
 topics:
 
@@ -26,11 +26,12 @@ gcloudProject:
 provider: anthropic
 model: claude-opus-5
 
-# Zeigt ANTHROPIC_BASE_URL auf ein lokales Nuncio, damit die Modellroute zum
-# Projekt gehört und nicht zur Shell. Leer lassen für die echte API.
+# Points ANTHROPIC_BASE_URL at a local Nuncio, so the model route belongs to
+# the project rather than to the shell it was started from. Leave empty for
+# the real API.
 gateway:
 
-# Schlüsselbund statt Klartext. keychainAccount fällt auf actor zurück.
+# Keychain instead of plaintext. keychainAccount falls back to actor.
 keychainService: limen-anthropic
 keychainAccount:
 `
@@ -42,10 +43,10 @@ keychainAccount:
 func CmdInit(w io.Writer, dir string) error {
 	target := filepath.Join(dir, ".limen", "limen.yaml")
 	if _, err := os.Stat(target); err == nil {
-		return fmt.Errorf("%s existiert bereits", target)
+		return fmt.Errorf("%s already exists", target)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".limen.yaml")); err == nil {
-		return fmt.Errorf(".limen.yaml (altes Layout) existiert bereits — `limen migrate` hebt sie nach .limen/")
+		return fmt.Errorf(".limen.yaml (old layout) already exists — `limen migrate` lifts it into .limen/")
 	}
 	if err := os.MkdirAll(filepath.Join(dir, ".limen"), 0o755); err != nil {
 		return err
@@ -54,15 +55,15 @@ func CmdInit(w io.Writer, dir string) error {
 	if err := os.WriteFile(target, []byte(body), 0o644); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "angelegt: %s\n", target)
+	fmt.Fprintf(w, "created: %s\n", target)
 
 	// This file carries per-machine identity — githubUser, claudeConfigDir,
 	// gcloudAccount — and may end up holding an apiKey that someone pasted in.
 	// Committing it leaks one machine's setup into a shared repository, so the
 	// ignore entry is part of creating it, not a separate thing to remember.
 	if err := ignoreLimenFile(w, dir); err != nil {
-		fmt.Fprintf(w, "Hinweis: .gitignore nicht angepasst (%v)\n", err)
-		fmt.Fprintln(w, "Bitte selbst eintragen:  echo "+ignoreEntry+" >> .gitignore")
+		fmt.Fprintf(w, "Note: .gitignore not adjusted (%v)\n", err)
+		fmt.Fprintln(w, "Add it yourself:  echo "+ignoreEntry+" >> .gitignore")
 	}
 	return nil
 }
@@ -89,7 +90,7 @@ func ignoreLimenFile(w io.Writer, dir string) error {
 	}
 	for _, line := range strings.Split(string(body), "\n") {
 		if strings.TrimSpace(line) == ignoreEntry {
-			fmt.Fprintln(w, ignoreEntry+" steht bereits in .gitignore.")
+			fmt.Fprintln(w, ignoreEntry+" already in .gitignore.")
 			return nil
 		}
 	}
@@ -98,7 +99,7 @@ func ignoreLimenFile(w io.Writer, dir string) error {
 	if len(body) > 0 && !strings.HasSuffix(string(body), "\n") {
 		entry = "\n" + entry
 	}
-	entry = "\n# limen: maschinenlokale Identität, gehört nicht ins Repository\n" + strings.TrimPrefix(entry, "\n")
+	entry = "\n# limen: machine-local identity, does not belong in the repository\n" + strings.TrimPrefix(entry, "\n")
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
@@ -107,7 +108,7 @@ func ignoreLimenFile(w io.Writer, dir string) error {
 	if _, err := f.WriteString(entry); err != nil {
 		return err
 	}
-	fmt.Fprintln(w, ignoreEntry+" in .gitignore eingetragen.")
+	fmt.Fprintln(w, ignoreEntry+" added to .gitignore.")
 	return nil
 }
 
@@ -120,7 +121,7 @@ func excludeLimenFile(w io.Writer, dir string) error {
 	gitDir := filepath.Join(dir, ".git")
 	st, err := os.Stat(gitDir)
 	if err != nil || !st.IsDir() {
-		fmt.Fprintln(w, "Kein Git-Repository — "+ignoreEntry+" braucht keinen Ignore-Eintrag.")
+		fmt.Fprintln(w, "Not a git repository — "+ignoreEntry+" needs no ignore entry.")
 		return nil
 	}
 
@@ -131,7 +132,7 @@ func excludeLimenFile(w io.Writer, dir string) error {
 	}
 	for _, line := range strings.Split(string(body), "\n") {
 		if strings.TrimSpace(line) == ignoreEntry {
-			fmt.Fprintln(w, ignoreEntry+" steht bereits in .git/info/exclude.")
+			fmt.Fprintln(w, ignoreEntry+" already in .git/info/exclude.")
 			return nil
 		}
 	}
@@ -139,7 +140,7 @@ func excludeLimenFile(w io.Writer, dir string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	entry := "# limen: maschinenlokale Identität, gehört nicht ins Repository\n" + ignoreEntry + "\n"
+	entry := "# limen: machine-local identity, does not belong in the repository\n" + ignoreEntry + "\n"
 	if len(body) > 0 && !strings.HasSuffix(string(body), "\n") {
 		entry = "\n" + entry
 	}
@@ -151,20 +152,20 @@ func excludeLimenFile(w io.Writer, dir string) error {
 	if _, err := f.WriteString(entry); err != nil {
 		return err
 	}
-	fmt.Fprintln(w, ignoreEntry+" in .git/info/exclude eingetragen (keine .gitignore vorhanden).")
+	fmt.Fprintln(w, ignoreEntry+" added to .git/info/exclude (no .gitignore present).")
 	return nil
 }
 
 // CmdKeychainImport moves a plaintext key out of the config into the keychain.
 func CmdKeychainImport(w io.Writer, c *Context) error {
 	if c == nil {
-		return fmt.Errorf("kein Kontext gefunden")
+		return fmt.Errorf("no context found")
 	}
 	if !c.HasPlaintextKey() {
-		return fmt.Errorf("kein Klartextschlüssel in der Konfiguration")
+		return fmt.Errorf("no plaintext key in the configuration")
 	}
 	if _, err := exec.LookPath("security"); err != nil {
-		return fmt.Errorf("security(1) nur auf macOS")
+		return fmt.Errorf("security(1) is macOS only")
 	}
 	service := c.KeychainService
 	if service == "" {
@@ -179,20 +180,20 @@ func CmdKeychainImport(w io.Writer, c *Context) error {
 		account = c.Actor
 	}
 	if account == "" {
-		return fmt.Errorf("actor oder keychainAccount muss gesetzt sein")
+		return fmt.Errorf("actor or keychainAccount must be set")
 	}
 	cmd := exec.Command("security", "add-generic-password",
 		"-U", "-s", service, "-a", account, "-w", c.PlaintextKey)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("security: %v: %s", err, out)
 	}
-	fmt.Fprintf(w, "im Schlüsselbund abgelegt: service=%s account=%s\n", service, account)
-	fmt.Fprintln(w, "Jetzt die Zeile apiKey: aus der Konfiguration entfernen.")
+	fmt.Fprintf(w, "stored in the keychain: service=%s account=%s\n", service, account)
+	fmt.Fprintln(w, "Now remove the apiKey: line from the configuration.")
 	return nil
 }
 
-const zshHook = `# limen — in .zshrc einbinden:  eval "$(limen hook zsh)"
-# Ein Aufruf je Verzeichniswechsel; LIMEN_SEGMENT kommt aus derselben Ausgabe.
+const zshHook = `# limen — add to .zshrc:  eval "$(limen hook zsh)"
+# One call per directory change; LIMEN_SEGMENT rides along in the same output.
 _limen_apply() {
   local out
   out="$(limen shell 2>/dev/null)" || return 0
@@ -205,11 +206,11 @@ _limen_apply() {
 autoload -Uz add-zsh-hook
 add-zsh-hook chpwd _limen_apply
 _limen_apply
-# Optional in der Statuszeile:
+# Optional, in the status line:
 #   RPROMPT='%F{244}${LIMEN_SEGMENT}%f'
 `
 
-const bashHook = `# limen — in .bashrc einbinden:  eval "$(limen hook bash)"
+const bashHook = `# limen — add to .bashrc:  eval "$(limen hook bash)"
 _limen_apply() {
   local out
   out="$(limen shell 2>/dev/null)" || return 0
@@ -231,7 +232,7 @@ func CmdHook(w io.Writer, shell string) error {
 	case "bash":
 		io.WriteString(w, bashHook)
 	default:
-		return fmt.Errorf("unbekannte Shell %q (zsh, bash)", shell)
+		return fmt.Errorf("unknown shell %q (zsh, bash)", shell)
 	}
 	return nil
 }

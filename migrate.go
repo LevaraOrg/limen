@@ -60,7 +60,7 @@ func Migrate(w io.Writer, dir string, dryRun bool) MigrateResult {
 
 	if _, err := os.Stat(target); err == nil {
 		res.Action = "skipped"
-		res.Reason = ".limen/limen.yaml existiert bereits"
+		res.Reason = ".limen/limen.yaml already exists"
 		return res
 	}
 
@@ -91,7 +91,7 @@ func Migrate(w io.Writer, dir string, dryRun bool) MigrateResult {
 	}
 
 	if src != nil {
-		b.WriteString("# limen — übernommen aus .orca/ am Stand der Migration.\n")
+		b.WriteString("# limen — taken over from .orca/ as it stood at migration time.\n")
 		line("label", src.Label)
 		line("actor", src.Actor)
 		line("githubUser", src.GithubUser)
@@ -103,22 +103,22 @@ func Migrate(w io.Writer, dir string, dryRun bool) MigrateResult {
 		if src.HasPlaintextKey() {
 			// Deliberately not carried over: copying it would spread the problem
 			// into a second file instead of moving it out of both.
-			res.Warning = "apiKey NICHT übernommen — mit `limen keychain-import` in den Schlüsselbund verschieben, dann aus .orca/config.yaml löschen"
+			res.Warning = "apiKey NOT carried over — move it with `limen keychain-import`, then delete it from .orca/config.yaml"
 		}
 	} else {
-		b.WriteString("# limen — neu angelegt. Nur das Label ist gesetzt; alles andere\n")
-		b.WriteString("# müsste geraten werden und stünde dann falsch in der Statuszeile.\n")
+		b.WriteString("# limen — newly created. Only the label is set; everything else\n")
+		b.WriteString("# would have to be guessed, and would then be wrong in the status line.\n")
 		line("label", filepath.Base(dir))
 		b.WriteString("actor:\nprovider:\nmodel:\n")
 		if owner := remoteOwner(dir); owner != "" {
 			// A hint, not a value. See remoteOwner for why.
-			fmt.Fprintf(&b, "\n# githubUser:   # origin gehört \"%s\" — Organisation oder\n"+
-				"#               # anderes Konto? Bitte selbst eintragen.\n", owner)
+			fmt.Fprintf(&b, "\n# githubUser:   # origin belongs to \"%s\" — an organisation or\n"+
+				"#               # another account? Please fill this in yourself.\n", owner)
 		} else {
 			b.WriteString("githubUser:\n")
 		}
 	}
-	b.WriteString("\n# Zeigt ANTHROPIC_BASE_URL auf ein lokales Nuncio. Leer = echte API.\ngateway:\n")
+	b.WriteString("\n# Points ANTHROPIC_BASE_URL at a local Nuncio. Empty = the real API.\ngateway:\n")
 
 	res.Fields = fields
 	if dryRun {
@@ -137,7 +137,7 @@ func Migrate(w io.Writer, dir string, dryRun bool) MigrateResult {
 	}
 	res.Action = "written"
 	if err := ignoreLimenFile(io.Discard, dir); err != nil {
-		res.Warning = strings.TrimSpace(res.Warning + " .gitignore nicht angepasst: " + err.Error())
+		res.Warning = strings.TrimSpace(res.Warning + " .gitignore not adjusted: " + err.Error())
 	}
 	return res
 }
@@ -159,7 +159,7 @@ func liftFlatLayout(dir string, dryRun bool) MigrateResult {
 	for i, m := range moves {
 		names[i] = m[0]
 	}
-	res.Reason = "gehoben nach .limen/: " + strings.Join(names, ", ")
+	res.Reason = "lifted into .limen/: " + strings.Join(names, ", ")
 	res.Fields = len(moves)
 	if dryRun {
 		res.Action = "would-write"
@@ -210,13 +210,13 @@ func retargetIgnore(dir string) (warning string) {
 			continue
 		}
 		if err := os.WriteFile(p, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
-			return "Ignore-Eintrag nicht angepasst: " + err.Error()
+			return "ignore entry not adjusted: " + err.Error()
 		}
 		replaced = true
 	}
 	if !replaced {
 		if err := ignoreLimenFile(io.Discard, dir); err != nil {
-			return ".gitignore nicht angepasst: " + err.Error()
+			return ".gitignore not adjusted: " + err.Error()
 		}
 	}
 	return ""
@@ -240,11 +240,11 @@ func CmdMigrate(w io.Writer, dirs []string, dryRun bool) error {
 			continue
 		}
 		if st, err := os.Stat(abs); err != nil || !st.IsDir() {
-			fmt.Fprintf(w, "  ?  %s: kein Verzeichnis\n", dir)
+			fmt.Fprintf(w, "  ?  %s: not a directory\n", dir)
 			continue
 		}
 		r := Migrate(w, abs, dryRun)
-		detail := fmt.Sprintf("%d Felder", r.Fields)
+		detail := fmt.Sprintf("%d fields", r.Fields)
 		if r.Reason != "" {
 			detail = r.Reason
 		}
@@ -264,10 +264,10 @@ func CmdMigrate(w io.Writer, dirs []string, dryRun bool) error {
 		}
 	}
 
-	verb := "geschrieben"
+	verb := "written"
 	if dryRun {
-		verb = "würden geschrieben"
+		verb = "would be written"
 	}
-	fmt.Fprintf(w, "\n%d %s, %d übersprungen\n", written, verb, skipped)
+	fmt.Fprintf(w, "\n%d %s, %d skipped\n", written, verb, skipped)
 	return nil
 }

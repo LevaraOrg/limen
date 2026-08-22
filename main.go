@@ -1,9 +1,9 @@
-// limen — ‹limen› Schwelle. Sagt, welche Identität hinter dieser
-// Verzeichnisschwelle gilt, und exportiert sie.
+// limen — ‹limen›, the threshold. It says which identity applies behind this
+// directory threshold, and exports it.
 //
-// Ersetzt `orca env`. Derselbe Zweck, ohne die JVM: `orca env json` kostete auf
-// dieser Maschine 530 ms, weshalb die alte WezTerm-Integration ihr Ergebnis 15
-// Sekunden cachte und nach jedem Verzeichniswechsel daneben lag.
+// Replaces `orca env`. Same purpose, without the JVM: `orca env json` cost
+// 530 ms on this machine, which is why the old WezTerm integration cached its
+// result for 15 seconds and was wrong for a while after every directory change.
 package main
 
 import (
@@ -15,45 +15,45 @@ import (
 
 const version = "0.7.0"
 
-const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
+const usage = `limen ` + version + ` — context and identity per directory
 
-  limen show            lesbare Übersicht
-  limen json            maschinenlesbar
-  limen shell           export-Zeilen für  eval "$(limen shell)"
-  limen prompt          einzeiliges Segment für RPROMPT / Statuszeile
-  limen root            Pfad des Projektwurzelverzeichnisses
-  limen list [--json]   alle registrierten Kontexte dieser Maschine
-  limen register [pfad…] Kontext ins Register aufnehmen (der Shell-Hook tut
-                        das beim Betreten von selbst)
+  limen show            readable overview
+  limen json            machine-readable
+  limen shell           export lines for  eval "$(limen shell)"
+  limen prompt          one-line segment for RPROMPT / status line
+  limen root            path of the project root directory
+  limen list [--json]   every context registered on this machine
+  limen register [path…] take a context into the registry (the shell hook does
+                        this by itself on entry)
   limen note [--at label] "text"
-                        datierte Notiz an .limen/notes.md anhängen
-  limen backlog [--json] offene Notizen aller Kontexte — wo etwas zu tun ist;
-                        eine Zeile mit "- ✓ …" gilt als abgehakt
-  limen profile         geerbte Normen: was gilt hier, ist es aktuell
-    … install <quelle>  Agent-Plugins-Paket in den Speicher holen (Pfad|git-URL)
-    … sync [--dry-run]  Skills und ADRs ins Projekt materialisieren
-    … check             Exit 1 bei Abweichung — für pre-commit oder CI
-    … list              was im Speicher liegt
-  limen init            .limen/limen.yaml im aktuellen Verzeichnis anlegen
-  limen migrate [pfad…] aufs .limen/-Layout bringen — hebt flache .limen.yaml
-                        samt LIMEN.md/LIMEN-META.yaml hoch, übernimmt .orca/,
-                        legt sonst neu an. --dry-run zeigt nur.
-  limen keychain-import Klartextschlüssel in den Schlüsselbund verschieben
-  limen hook zsh|bash   Shell-Hook zum Einbinden
+                        append a dated note to .limen/notes.md
+  limen backlog [--json] open notes across all contexts — where something is to
+                        be done; a line reading "- ✓ …" counts as checked off
+  limen profile         inherited norms: what applies here, is it current
+    … install <source>  fetch an Agent Plugins package (path or git URL)
+    … sync [--dry-run]  materialise skills and ADRs into the project
+    … check             exit 1 on drift — for pre-commit or CI
+    … list              what the store holds
+  limen init            create .limen/limen.yaml in the current directory
+  limen migrate [path…] lift onto the .limen/ layout — moves a flat .limen.yaml
+                        along with LIMEN.md/LIMEN-META.yaml, adopts .orca/,
+                        otherwise creates anew. --dry-run only shows.
+  limen keychain-import move a plaintext key into the keychain
+  limen hook zsh|bash   shell hook to wire in
 
-Gesucht wird aufwärts nach .limen/limen.yaml, dann nach flacher .limen.yaml
-(altes Layout), dann nach .orca/. Ohne Kontext: json gibt {} aus, shell bleibt
-still, beide mit Exit 0 — damit der Aufruf bedingungslos aus einer
-Shell-Startdatei möglich ist.
+The search runs upward for .limen/limen.yaml, then for a flat .limen.yaml (old
+layout), then for .orca/. Without a context: json prints {}, shell stays silent,
+both with exit 0 — so the call can be made unconditionally from a shell startup
+file.
 
-Alles Limen-Eigene liegt in .limen/: limen.yaml ist der Deskriptor (harte
-Wahrheit, wird von Werkzeugen nie beschrieben, maschinenlokal), notes.md
-sammelt lose Gedanken, meta.yaml die harten Kontextfakten — darunter
-profiles:, die geerbten Normen. profiles.lock belegt, was materialisiert
-wurde. meta.yaml kann nie Identität setzen; sie ist Repository-Inhalt.
+Everything limen owns lives in .limen/: limen.yaml is the descriptor (hard
+truth, never written by tools, machine-local), notes.md collects loose thoughts,
+meta.yaml the hard context facts — among them profiles:, the inherited norms.
+profiles.lock records what was materialised. meta.yaml can never set identity;
+it is repository content.
 
-Liegt daneben eine service.yaml (agnostic-stack), wird ihr kind gelesen und
-in show/json/list mitgemeldet — entdeckt, nicht dupliziert.
+If a service.yaml (agnostic-stack) sits alongside, its kind is read and
+reported in show/json/list — discovered, not duplicated.
 `
 
 func main() {
@@ -90,7 +90,7 @@ func run(args []string, stdout, stderr *os.File) int {
 	switch cmd {
 	case "show":
 		if !found {
-			fmt.Fprintf(stderr, "limen: kein .limen.yaml und kein .orca/ oberhalb von %s\n", cwd)
+			fmt.Fprintf(stderr, "limen: no .limen.yaml and no .orca/ above %s\n", cwd)
 			return 1
 		}
 		RenderShow(out, ctx, resolver)

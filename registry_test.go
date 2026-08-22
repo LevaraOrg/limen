@@ -52,7 +52,7 @@ func TestCLIListJSONCarriesTheRoutingFields(t *testing.T) {
 
 	r := runLimen(t, tempDir(t), env, "list", "--json")
 	for _, want := range []string{
-		`"purpose":"Produktstrategie — Rollenerarbeitung und Präsentationen"`,
+		`"purpose":"Product strategy — role design and presentations"`,
 		`"topics":["design-thinking","customer-journey"]`,
 		`"source":"limen"`,
 	} {

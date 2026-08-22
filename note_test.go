@@ -65,14 +65,14 @@ func TestCLINoteRoutesByLabelFromAnywhere(t *testing.T) {
 	runLimen(t, nested, env, "register")
 
 	// From a directory with no context at all, case-insensitive on the label.
-	if r := runLimen(t, tempDir(t), env, "note", "--at", "TESSERA", "aus der Ferne"); r.code != 0 {
+	if r := runLimen(t, tempDir(t), env, "note", "--at", "TESSERA", "from afar"); r.code != 0 {
 		t.Fatalf("note --at exit %d: %s", r.code, r.stderr)
 	}
 	body, err := os.ReadFile(filepath.Join(root, ".limen", "notes.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(body), "- aus der Ferne") {
+	if !strings.Contains(string(body), "- from afar") {
 		t.Errorf("note did not land in the target root:\n%s", body)
 	}
 }

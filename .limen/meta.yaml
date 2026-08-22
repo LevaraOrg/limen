@@ -1,0 +1,13 @@
+# limen — die committete Hälfte des Kontexts.
+#
+# Der Deskriptor daneben (limen.yaml) ist maschinenlokal und gitignoriert: er
+# sagt, wer du hier bist. Diese Datei sagt, woran das Projekt gebunden ist, und
+# ist für jeden Klon dieselbe. Werkzeuge dürfen sie lesen, nie Identität daraus
+# setzen — siehe meta.go.
+
+# Geerbte Normen. Ein Paket nach agent-plugins.org, gepinnt auf eine Version.
+profiles: levara-baseline@1.0.0
+
+# Wohin `limen profile sync` materialisiert. Beides hat Vorgaben
+# (.claude/skills und docs/adr); hier steht nur, was abweicht.
+adrTarget: docs/adr

@@ -151,12 +151,13 @@ func CmdRegister(w io.Writer, dirs []string, cwd string) error {
 // smaller than the json command's view: this is the routing inventory for
 // agents, so it carries location and meaning, never identity or key state.
 type listView struct {
-	Root    string   `json:"root"`
-	Label   string   `json:"label"`
-	Purpose string   `json:"purpose"`
-	Topics  []string `json:"topics"`
-	Service *Service `json:"service"`
-	Source  string   `json:"source"`
+	Root     string    `json:"root"`
+	Label    string    `json:"label"`
+	Purpose  string    `json:"purpose"`
+	Topics   []string  `json:"topics"`
+	Profiles []Profile `json:"profiles"`
+	Service  *Service  `json:"service"`
+	Source   string    `json:"source"`
 }
 
 // CmdList prints every live registered context, sorted by label so the
@@ -172,12 +173,13 @@ func CmdList(w io.Writer, jsonOut bool) error {
 		views := []listView{}
 		for _, c := range ctxs {
 			views = append(views, listView{
-				Root:    c.Root,
-				Label:   c.Label,
-				Purpose: c.Purpose,
-				Topics:  c.TopicList(),
-				Service: c.Service,
-				Source:  string(c.Source),
+				Root:     c.Root,
+				Label:    c.Label,
+				Purpose:  c.Purpose,
+				Topics:   c.TopicList(),
+				Profiles: c.ProfileList(),
+				Service:  c.Service,
+				Source:   string(c.Source),
 			})
 		}
 		b, err := json.Marshal(views)

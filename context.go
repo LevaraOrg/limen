@@ -56,6 +56,12 @@ type Context struct {
 	// Service is an adjacent service.yaml, discovered rather than declared —
 	// see service.go for why there is no `kind:` field here.
 	Service *Service
+
+	// Meta is the committed half of the context: .limen/meta.yaml. It carries
+	// what the project declares — inherited profiles above all — as opposed to
+	// the descriptor, which carries who you are on this machine. Read through
+	// its own switch so repository content can never set identity; see meta.go.
+	Meta *Meta
 }
 
 var keyPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*$`)
@@ -207,6 +213,7 @@ func (c *Context) finish() {
 	}
 	c.ClaudeDir = expandTilde(c.ClaudeDir)
 	c.Service = readService(c.Root)
+	c.Meta = readMeta(c.Root)
 }
 
 func expandTilde(p string) string {

@@ -56,6 +56,7 @@ limen list      # alle registrierten Kontexte, --json für Agenten
 limen register  # Kontext ins Register aufnehmen (der Hook tut das von selbst)
 limen note      # datierte Notiz an .limen/notes.md anhängen, --at <label> von überall
 limen backlog   # offene Notizen aller Kontexte — wo etwas zu tun ist
+limen profile   # geerbte Normen: was gilt hier, ist es aktuell (sync, check, install)
 limen init      # .limen/limen.yaml anlegen
 limen migrate   # aufs .limen/-Layout heben (flache .limen.yaml, .orca/), für viele Projekte
 limen hook zsh  # Shell-Integration ausgeben
@@ -70,7 +71,8 @@ gesucht:
 |---|---|---|
 | `.limen/limen.yaml` | der Deskriptor (unten) | ignoriert — maschinenlokal |
 | `.limen/notes.md` | rollierende, datierte Notizen (`limen note`) | committen |
-| `.limen/meta.yaml` | harte Kontextfakten (Bounded-Context-Schema) | committen |
+| `.limen/meta.yaml` | harte Kontextfakten, darunter `profiles:` | committen |
+| `.limen/profiles.lock` | was materialisiert wurde, mit Hash je Datei | committen |
 
 Eine flache `.limen.yaml` aus früheren Versionen wird weiter gelesen;
 `limen migrate` hebt sie samt `LIMEN.md`/`LIMEN-META.yaml` nach `.limen/`.
@@ -147,6 +149,90 @@ Gelesen wird durch denselben flachen Parser, aber über einen eigenen Zweig:
 `service.yaml` hat einen verschachtelten `metadata:`-Block, dessen `name:`
 sonst im `actor` landen würde. Nach den zwei Feldern bricht das Lesen ab — sie
 stehen in den ersten Zeilen.
+
+## Geerbte Normen — `limen profile`
+
+Manche Regeln gelten nicht für ein Projekt, sondern für alle: Doku auf
+Englisch, testgetrieben arbeiten, sparsam mit Tokens. Sie einmal zu beschließen
+und dann in jedem Repository neu hinzuschreiben, ist genau die zweite Wahrheit,
+die Limen sonst vermeidet — also gilt hier dieselbe Regel wie bei
+`service.yaml`: **Limen bindet und prüft, es speichert nicht.**
+
+Der Text einer Norm liegt in einem **Agent-Plugins-Paket**
+([agent-plugins.org](https://agent-plugins.org), Spec 1.0.0) — einem Verzeichnis
+mit `plugin.json`, `skills/` und hier zusätzlich `adr/`. Das Format wurde
+unverändert übernommen, nicht angepasst: sein ganzer Wert ist, dass Codex,
+Cursor, Copilot, Kiro und VS Code es ebenfalls lesen, und ein eigener Dialekt
+gäbe das für nichts auf. Limen ergänzt die zwei Dinge, die die Spec bewusst dem
+Client überlässt — **welches Projekt ein Paket erbt**, und **ob die Kopie im
+Projekt noch die ist, die beschlossen wurde**.
+
+```bash
+limen profile install https://github.com/LevaraOrg/levara-baseline
+```
+
+Deklariert wird in `.limen/meta.yaml`, nicht im Deskriptor. Das ist keine
+Kosmetik: `limen.yaml` ist maschinenlokal und gitignoriert, `meta.yaml` ist
+Repository-Inhalt. Welche Normen ein Projekt erbt, ist eine Eigenschaft des
+Projekts, nicht des Laptops, auf dem es ausgecheckt wurde.
+
+```yaml
+# .limen/meta.yaml
+profiles: levara-baseline@1.0.0
+skillTarget: .claude/skills      # Vorgabe
+adrTarget: docs/adr              # Vorgabe
+```
+
+```bash
+limen profile          # was gilt hier, ist es aktuell
+limen profile sync     # Skills und ADRs ins Projekt schreiben, --dry-run zeigt nur
+limen profile check    # Exit 1 bei Abweichung — für pre-commit oder CI
+limen profile list     # was im Speicher liegt
+```
+
+Die Paarung ADR + Skill ist der Punkt: **das ADR ist das Warum, der Skill das
+Wie.** Ein ADR wird gelesen, wenn jemand eine Regel in Frage stellt; ein Skill
+wirkt, ohne dass ihn jemand liest. Nur Skills auszuliefern hinterlässt Normen,
+über die man nicht streiten kann, nur ADRs solche, an die sich niemand hält.
+
+### Warum eine Lock-Datei
+
+`sync` schreibt `.limen/profiles.lock` — Version, Herkunft und **ein SHA-256 je
+Datei**:
+
+```json
+{ "version": 1, "profiles": { "levara-baseline": {
+  "version": "1.0.0",
+  "source": "https://github.com/LevaraOrg/levara-baseline",
+  "files": { ".claude/skills/levara-english/SKILL.md": "sha256:6ee2a868…" } } } }
+```
+
+Erst damit ist `check` eine Aussage statt einer Vermutung: eine Norm, die
+jemand im Projekt zurechtgebogen hat, fällt auf, ohne dass jemand die Datei
+noch einmal liest. Die Herkunft kommt aus dem `repository`-Feld des Pakets,
+damit Limen kein zweites Verzeichnis von Quellen führt, das der `plugin.json`
+widersprechen könnte.
+
+`sync` **entfernt** auch: was ein Profil nicht mehr trägt oder was aus
+`meta.yaml` verschwunden ist, wird gelöscht und die leer gewordenen
+Verzeichnisse dazu. Eine zurückgezogene Norm, die liegen bleibt, ist schlimmer
+als eine, die nie da war — der Agent befolgt dann weiter eine Regel, die
+niemand mehr vertritt.
+
+### Nichts davon läuft im Hook
+
+`limen shell` kostet 5,6 ms, weil es kein Netz anfasst und keine Dateien
+kopiert. Ein Profil wird durch ein ausdrückliches Verb materialisiert, nie
+durch einen Schwellengang. Das ist dieselbe Schranke, wegen der es dieses
+Werkzeug überhaupt gibt.
+
+### `meta.yaml` kann keine Identität setzen
+
+Gelesen wird sie durch denselben flachen Parser wie der Deskriptor, aber über
+einen **eigenen Zweig** — wie `service.yaml`, und aus einem schärferen Grund:
+`meta.yaml` ist eingecheckt. Könnte sie `actor:` oder `githubUser:` setzen,
+würde ein geklontes Repository bestimmen, wer der ist, der es geöffnet hat.
+Genommen werden nur `profiles:`, `skillTarget:` und `adrTarget:`.
 
 ## Register und Notizen — Kontexte als Ankerpunkte für Agenten
 
@@ -388,7 +474,7 @@ make cover         # Abdeckung
 make bench         # die Messung aus der Tabelle oben, auf deiner Maschine
 ```
 
-**39 Tests** — Unit-Tests für Parser, Auflösung und Ausgabe, plus
+**111 Testfälle** — Unit-Tests für Parser, Auflösung und Ausgabe, plus
 Integrationstests, die das gebaute Binary in echten Verzeichnissen ausführen.
 Der Schlüsselbund wird nie berührt: die Lookup-Funktion ist injizierbar, und die
 CLI-Tests belegen mit einem `PATH=/nonexistent`, dass `prompt` ohne

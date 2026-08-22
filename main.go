@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const version = "0.6.0"
+const version = "0.7.0"
 
 const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
 
@@ -29,6 +29,11 @@ const usage = `limen ` + version + ` — Kontext und Identität pro Verzeichnis
                         datierte Notiz an .limen/notes.md anhängen
   limen backlog [--json] offene Notizen aller Kontexte — wo etwas zu tun ist;
                         eine Zeile mit "- ✓ …" gilt als abgehakt
+  limen profile         geerbte Normen: was gilt hier, ist es aktuell
+    … install <quelle>  Agent-Plugins-Paket in den Speicher holen (Pfad|git-URL)
+    … sync [--dry-run]  Skills und ADRs ins Projekt materialisieren
+    … check             Exit 1 bei Abweichung — für pre-commit oder CI
+    … list              was im Speicher liegt
   limen init            .limen/limen.yaml im aktuellen Verzeichnis anlegen
   limen migrate [pfad…] aufs .limen/-Layout bringen — hebt flache .limen.yaml
                         samt LIMEN.md/LIMEN-META.yaml hoch, übernimmt .orca/,
@@ -43,7 +48,9 @@ Shell-Startdatei möglich ist.
 
 Alles Limen-Eigene liegt in .limen/: limen.yaml ist der Deskriptor (harte
 Wahrheit, wird von Werkzeugen nie beschrieben, maschinenlokal), notes.md
-sammelt lose Gedanken, meta.yaml die harten Kontextfakten.
+sammelt lose Gedanken, meta.yaml die harten Kontextfakten — darunter
+profiles:, die geerbten Normen. profiles.lock belegt, was materialisiert
+wurde. meta.yaml kann nie Identität setzen; sie ist Repository-Inhalt.
 
 Liegt daneben eine service.yaml (agnostic-stack), wird ihr kind gelesen und
 in show/json/list mitgemeldet — entdeckt, nicht dupliziert.
@@ -137,6 +144,15 @@ func run(args []string, stdout, stderr *os.File) int {
 			fmt.Fprintf(stderr, "limen: %v\n", err)
 			return 1
 		}
+
+	case "profile":
+		code, err := CmdProfile(out, ctxOrNil(ctx, found), args[1:])
+		if err != nil {
+			out.Flush()
+			fmt.Fprintf(stderr, "limen: %v\n", err)
+			return 1
+		}
+		return code
 
 	case "note":
 		if err := CmdNote(out, ctxOrNil(ctx, found), found, args[1:], time.Now()); err != nil {

@@ -27,22 +27,23 @@ func Prompt(c *Context) string {
 }
 
 type jsonView struct {
-	Root            string   `json:"root"`
-	Label           string   `json:"label"`
-	Actor           string   `json:"actor"`
-	GithubUser      string   `json:"github_user"`
-	ClaudeConfigDir string   `json:"claude_config_dir"`
-	GcloudAccount   string   `json:"gcloud_account"`
-	GcloudProject   string   `json:"gcloud_project"`
-	Provider        string   `json:"provider"`
-	Model           string   `json:"model"`
-	Gateway         string   `json:"gateway"`
-	Purpose         string   `json:"purpose"`
-	Topics          []string `json:"topics"`
-	Service         *Service `json:"service"`
-	Source          string   `json:"source"`
-	APIKeyPresent   bool     `json:"api_key_present"`
-	APIKeyInConfig  bool     `json:"api_key_in_config"`
+	Root            string    `json:"root"`
+	Label           string    `json:"label"`
+	Actor           string    `json:"actor"`
+	GithubUser      string    `json:"github_user"`
+	ClaudeConfigDir string    `json:"claude_config_dir"`
+	GcloudAccount   string    `json:"gcloud_account"`
+	GcloudProject   string    `json:"gcloud_project"`
+	Provider        string    `json:"provider"`
+	Model           string    `json:"model"`
+	Gateway         string    `json:"gateway"`
+	Purpose         string    `json:"purpose"`
+	Topics          []string  `json:"topics"`
+	Profiles        []Profile `json:"profiles"`
+	Service         *Service  `json:"service"`
+	Source          string    `json:"source"`
+	APIKeyPresent   bool      `json:"api_key_present"`
+	APIKeyInConfig  bool      `json:"api_key_in_config"`
 }
 
 // RenderJSON writes the machine-readable view. Without a context it writes `{}`
@@ -66,6 +67,7 @@ func RenderJSON(w io.Writer, c *Context, r KeyResolver) error {
 		Gateway:         c.Gateway,
 		Purpose:         c.Purpose,
 		Topics:          c.TopicList(),
+		Profiles:        c.ProfileList(),
 		Service:         c.Service,
 		Source:          string(c.Source),
 		APIKeyPresent:   present,
@@ -100,6 +102,13 @@ func RenderShow(w io.Writer, c *Context, r KeyResolver) {
 	line("topics", c.Topics)
 	if c.HasService() {
 		line("service", fmt.Sprintf("%s (%s, %s)", c.Service.Kind, c.Service.APIVersion, c.Service.File))
+	}
+	if profiles := c.ProfileList(); len(profiles) > 0 {
+		names := make([]string, len(profiles))
+		for i, p := range profiles {
+			names[i] = p.String()
+		}
+		line("profiles", strings.Join(names, ", "))
 	}
 	fmt.Fprintf(w, "api key:      %s\n", KeySource(c, r))
 	switch {

@@ -309,21 +309,55 @@ limen keychain-import   # stores it in the keychain
 
 ## WezTerm
 
-The status line in the top right, previously fed by `orca env json`, is now fed
-by `limen json`. Same place, same information, without the 15-second cache its predecessor needed.
+The status line in the top right and the tab title are fed by `limen json`.
+The module lives in this repository, at `integrations/wezterm-limen.lua`.
+
+Setup is two steps, and the second is the one people forget:
 
 ```bash
-make install-wezterm     # symlinks integrations/wezterm-limen.lua into ~/.config/wezterm
+make install-wezterm     # step 1: symlinks integrations/wezterm-limen.lua into ~/.config/wezterm
 ```
 
-Then in `~/.config/wezterm/wezterm.lua`:
+**Step 2 — wire it into your config yourself.** `make install-wezterm` installs
+the module but deliberately does not touch your configuration. Find out which
+file WezTerm actually reads, because it supports two and only one of them is
+yours:
+
+```bash
+ls -l ~/.wezterm.lua ~/.config/wezterm/wezterm.lua 2>/dev/null
+```
+
+`~/.wezterm.lua` wins if both exist. Editing the one WezTerm does not read is
+the single most likely reason nothing changes.
 
 ```lua
 local limen = require 'wezterm-limen'
--- WezTerm does not inherit your shell PATH. If limen is not there:
--- limen.bin = '/Users/you/.local/bin/limen'
+
+-- Not optional in practice. The module shells out with `bash -c`, which reads
+-- no profile, and a GUI-launched WezTerm inherits launchd's PATH — which does
+-- not contain ~/.local/bin. Without this line the module finds no binary and
+-- draws `no limen` in a directory that has a perfectly good context.
+limen.bin = '/Users/you/.local/bin/limen'
+
 limen.apply(config)
 ```
+
+Existing windows keep the old configuration until `Cmd+Shift+R`
+(Reload Configuration); new windows pick it up immediately.
+
+### Coming from the orca module
+
+Replace the `require` and the `apply` call — installing the limen module does
+not remove the old one, and an untouched config goes on loading it:
+
+```lua
+local orca = require "wezterm-orca"   -- becomes: local limen = require "wezterm-limen"
+orca.apply(config)                    -- becomes: limen.apply(config)
+```
+
+Then delete `~/.config/wezterm/wezterm-orca.lua`. The symptom of skipping this
+is a dimmed `no orca` in the status line — which is the *old* module reporting
+correctly, not the new one failing.
 
 What gets drawn:
 

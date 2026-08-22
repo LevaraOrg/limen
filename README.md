@@ -476,7 +476,7 @@ make cover         # coverage
 make bench         # startup time per call, measured on your machine
 ```
 
-**111 test cases** — unit tests for the parser, resolution and output, plus
+**113 test cases** — unit tests for the parser, resolution and output, plus
 integration tests that run the built binary in real directories. The keychain is
 never touched: the lookup function is injectable, and the CLI tests prove with a
 `PATH=/nonexistent` that `prompt` gets by without `security(1)`.

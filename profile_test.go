@@ -492,3 +492,99 @@ func TestShowNamesTheProfiles(t *testing.T) {
 		t.Errorf("show = %s", out.String())
 	}
 }
+
+// --------------------------------------------------- several profiles at once
+
+// The per-project question is not only "which norms" but "which of them here".
+// A project declares the packages it wants; dropping one from meta.yaml has to
+// take its files with it while leaving the others untouched.
+
+func TestSeveralProfilesAreMaterialisedSideBySide(t *testing.T) {
+	store(t)
+	base := baseline(t)
+	extra := pkg(t, "house-style", "2.1.0",
+		map[string]string{"caveman/SKILL.md": "---\nname: caveman\n---\nUgh.\n"}, nil)
+
+	root, _ := project(t, "label: tessera\n")
+	write(t, filepath.Join(root, ".limen", "meta.yaml"),
+		"profiles: levara-baseline@1.0.0, house-style@2\n")
+
+	var out strings.Builder
+	for _, src := range []string{base, extra} {
+		if _, err := CmdProfile(&out, nil, []string{"install", src}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, _ := Discover(root)
+	if _, err := CmdProfile(&out, ctx, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, rel := range []string{
+		".claude/skills/tdd/SKILL.md",     // from levara-baseline
+		".claude/skills/caveman/SKILL.md", // from house-style
+	} {
+		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
+			t.Errorf("not materialised: %s (%v)", rel, err)
+		}
+	}
+
+	lock, err := readLock(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lock.Profiles) != 2 {
+		t.Fatalf("lock holds %d profiles, want 2", len(lock.Profiles))
+	}
+	// The pin was `@2` against an installed 2.1.0 — a prefix match on a dot
+	// boundary, which is what lets a project follow a minor release without
+	// editing meta.yaml.
+	if lock.Profiles["house-style"].Version != "2.1.0" {
+		t.Errorf("house-style version = %q", lock.Profiles["house-style"].Version)
+	}
+}
+
+func TestDroppingOneProfileLeavesTheOthersAlone(t *testing.T) {
+	store(t)
+	base := baseline(t)
+	extra := pkg(t, "house-style", "2.1.0",
+		map[string]string{"caveman/SKILL.md": "---\nname: caveman\n---\nUgh.\n"}, nil)
+
+	root, _ := project(t, "label: tessera\n")
+	write(t, filepath.Join(root, ".limen", "meta.yaml"),
+		"profiles: levara-baseline@1.0.0, house-style@2\n")
+
+	var out strings.Builder
+	for _, src := range []string{base, extra} {
+		if _, err := CmdProfile(&out, nil, []string{"install", src}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, _ := Discover(root)
+	if _, err := CmdProfile(&out, ctx, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Deactivate house-style by removing it from the declaration.
+	write(t, filepath.Join(root, ".limen", "meta.yaml"), "profiles: levara-baseline@1.0.0\n")
+	ctx, _ = Discover(root)
+	if _, err := CmdProfile(&out, ctx, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(root, ".claude", "skills", "caveman")); !os.IsNotExist(err) {
+		t.Error("a deactivated profile left its skill behind")
+	}
+	if _, err := os.Stat(filepath.Join(root, ".claude", "skills", "tdd", "SKILL.md")); err != nil {
+		t.Errorf("deactivating one profile removed another's files: %v", err)
+	}
+
+	lock, _ := readLock(ctx)
+	if _, still := lock.Profiles["house-style"]; still {
+		t.Error("the lock still lists the deactivated profile")
+	}
+	code, _ := CmdProfile(&out, ctx, []string{"check"})
+	if code != 0 {
+		t.Errorf("check reports drift after a clean deactivation:\n%s", out.String())
+	}
+}

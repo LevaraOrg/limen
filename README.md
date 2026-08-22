@@ -6,29 +6,6 @@ identity applies. Limen says which, and exports it.
 A single Go binary with no dependencies. Replaces `orca env` from the retired
 Orca monolith.
 
-## Why not the old tool
-
-Its usefulness was never the problem — its startup time was. `orca env json`
-took **530 ms** on this machine, because every call spins up a JVM. That is why
-the old WezTerm integration cached its result for 15 seconds and was wrong for a
-while after every directory change. A context tool that runs on every `cd`
-cannot cost that.
-
-Measured with `make bench` (200 runs per row, same machine):
-
-| | per call |
-|---|---|
-| `orca env json` (JVM) | **530 ms**, hence the 15 s cache |
-| `limen prompt` | **5.9 ms** |
-| `limen shell`, key already in the environment | **5.6 ms** |
-| `limen shell`, keychain access | 25.0 ms |
-| `/usr/bin/true` for comparison | 3.9 ms |
-
-The floor on this machine is process startup itself: 3.9 ms. Limen's own share
-is therefore **about 1.5 ms**. The only expensive row is the keychain, and that
-is a `security(1)` fork — a macOS cost, not a Limen cost. Export the key into
-the environment once and you never pay it.
-
 ## Installation
 
 ```bash
@@ -333,7 +310,7 @@ limen keychain-import   # stores it in the keychain
 ## WezTerm
 
 The status line in the top right, previously fed by `orca env json`, is now fed
-by `limen json`. Same place, same information, without the 15-second cache.
+by `limen json`. Same place, same information, without the 15-second cache its predecessor needed.
 
 ```bash
 make install-wezterm     # symlinks integrations/wezterm-limen.lua into ~/.config/wezterm
@@ -462,7 +439,7 @@ make test-go       # Go only
 make test-wezterm  # the Lua module only, in WezTerm's runtime
 make test-v        # verbose, shows which behaviour is being checked
 make cover         # coverage
-make bench         # the measurement from the table above, on your machine
+make bench         # startup time per call, measured on your machine
 ```
 
 **111 test cases** — unit tests for the parser, resolution and output, plus
@@ -495,5 +472,5 @@ integrations/
   wezterm-limen.lua  WezTerm status line and tab title
   selftest.lua       checks that WezTerm's Lua runtime executes
   test.sh            test driver including the negative control
-scripts/bench.sh     the measurement
+scripts/bench.sh     startup-time benchmark
 ```

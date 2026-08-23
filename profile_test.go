@@ -130,6 +130,27 @@ func TestMetaTargetsFallBackToConventionalPlaces(t *testing.T) {
 	}
 }
 
+func TestLanguageDefaultsToEnglish(t *testing.T) {
+	// The working language for code and documentation is english unless the
+	// project declares otherwise — the tool-level counterpart of ADR-0001.
+	root, _ := project(t, "label: plain\n")
+	ctx, _ := Discover(root)
+	if ctx.Language() != "english" {
+		t.Errorf("Language() = %q, want %q", ctx.Language(), "english")
+	}
+}
+
+func TestLanguageComesFromMetaNotFromTheDescriptor(t *testing.T) {
+	// The language is a project fact, identical for every clone, so it lives
+	// in the committed meta.yaml. The machine-local descriptor cannot set it.
+	root, _ := project(t, "label: plain\nlanguage: klingon\n")
+	write(t, filepath.Join(root, ".limen", "meta.yaml"), "language: german\n")
+	ctx, _ := Discover(root)
+	if ctx.Language() != "german" {
+		t.Errorf("Language() = %q, want %q", ctx.Language(), "german")
+	}
+}
+
 // ------------------------------------------------------------ version match
 
 func TestVersionConstraintMatchesOnDotBoundaries(t *testing.T) {

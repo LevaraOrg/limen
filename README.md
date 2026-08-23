@@ -154,7 +154,13 @@ profiles: levara-baseline@1.0.0, matt-pocock@1.0.0
 pausedSkills: write-a-skill      # inherited, deliberately off here
 skillTarget: .claude/skills      # default
 adrTarget: docs/adr              # default
+language: english                # default — working language for code and docs
 ```
+
+`language:` is the standard language for code and documentation in this tree.
+It defaults to `english` even when the file is absent, so `show` and `json`
+always answer with one — an agent never has to guess. A project that works in
+another language declares it here, where every clone sees the same value.
 
 ```bash
 limen profile          # what applies here, is it current
@@ -234,8 +240,8 @@ is the same constraint this tool exists for in the first place.
 It is read by the same flat parser as the descriptor, but through its **own
 branch** — like `service.yaml`, and for a sharper reason: `meta.yaml` is
 committed. If it could set `actor:` or `githubUser:`, a cloned repository would
-decide who the person opening it is. Only `profiles:`, `skillTarget:` and
-`adrTarget:` are taken.
+decide who the person opening it is. Only `profiles:`, `pausedSkills:`,
+`skillTarget:`, `adrTarget:` and `language:` are taken.
 
 ## Registry and notes — contexts as anchor points for agents
 

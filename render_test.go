@@ -75,11 +75,14 @@ func TestRenderJSONShape(t *testing.T) {
 	for _, key := range []string{
 		"root", "label", "actor", "github_user", "claude_config_dir",
 		"gcloud_account", "gcloud_project", "provider", "model", "gateway",
-		"source", "api_key_present", "api_key_in_config",
+		"language", "source", "api_key_present", "api_key_in_config",
 	} {
 		if _, ok := v[key]; !ok {
 			t.Errorf("missing key %q", key)
 		}
+	}
+	if v["language"] != "english" {
+		t.Errorf("language = %v, want the english default", v["language"])
 	}
 	if v["api_key_present"] != true {
 		t.Error("api_key_present should be true when the resolver succeeds")
@@ -169,6 +172,14 @@ func TestRenderShowIncludesTheWarningAndNotTheKey(t *testing.T) {
 	}
 	if !strings.Contains(out, "source:       .limen/limen.yaml") {
 		t.Error("show must name the source")
+	}
+}
+
+func TestRenderShowNamesTheLanguage(t *testing.T) {
+	var buf bytes.Buffer
+	RenderShow(&buf, sampleContext(), fixedResolver{})
+	if !strings.Contains(buf.String(), "language:     english") {
+		t.Errorf("show must name the working language, got:\n%s", buf.String())
 	}
 }
 

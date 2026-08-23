@@ -38,6 +38,10 @@ type Meta struct {
 	// PausedSkills names skills that a declared profile carries but this
 	// project does not want. Comma-separated, e.g. "zoom-out, grill-me".
 	PausedSkills string
+
+	// Language is the declared working language for code and documentation.
+	// Empty means the english default; see Context.Language.
+	Language string
 }
 
 // metaNames are searched in order. The second is the pre-0.4 layout, where the
@@ -77,6 +81,8 @@ func readMeta(root string) *Meta {
 				m.ADRTarget = val
 			case "pausedskills":
 				m.PausedSkills = val
+			case "language":
+				m.Language = val
 			}
 		}
 		f.Close()
@@ -144,6 +150,19 @@ func (c *Context) ADRTarget() string {
 		return c.Meta.ADRTarget
 	}
 	return "docs/adr"
+}
+
+// Language is the working language for code and documentation in this tree.
+// English is the default rather than a mere convention (the tool-level twin of
+// ADR-0001), so every context answers with a language even when none is
+// declared. A project that works in another language says so in meta.yaml,
+// where every clone sees the same declaration — like profiles, this is a
+// property of the project, not of the machine it is checked out on.
+func (c *Context) Language() string {
+	if c != nil && c.Meta != nil && c.Meta.Language != "" {
+		return c.Meta.Language
+	}
+	return "english"
 }
 
 // PausedSkillList names the skills this project deliberately does without.

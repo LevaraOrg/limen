@@ -1,9 +1,17 @@
 # ADR-0002: Test-driven development is the default way to build
 
-**Status:** Accepted
+**Status:** Accepted, amended in part by ADR-0004
 **Date:** 2026-08-22
 **Scope:** All LevaraOrg repositories
 **Applies to:** humans and agents alike
+
+> **Amended by ADR-0004 (2026-08-23).** Two statements below no longer hold as
+> written: the consequence "No coverage percentage is mandated", and the
+> rejection of a coverage gate under *Alternatives considered*. ADR-0004 adds a
+> per-module coverage **floor** of 75% and a required bug-pattern analyzer. The
+> reasoning here is not withdrawn — coverage is still not a target and this
+> document still governs *why* a test gets written. ADR-0004 answers a different
+> question: how an area the loop never reached gets noticed.
 
 ## Context
 

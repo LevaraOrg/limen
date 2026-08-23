@@ -6,7 +6,7 @@
 # derive identity from it — see meta.go.
 
 # Inherited norms. An agent-plugins.org package, pinned to a version.
-profiles: levara-baseline@1.0.0
+profiles: levara-baseline@1.1.0
 
 # Where `limen profile sync` materialises them. Both have defaults
 # (.claude/skills and docs/adr); only the deviation is written here.

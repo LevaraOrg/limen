@@ -2,15 +2,17 @@
   "version": 1,
   "profiles": {
     "levara-baseline": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "source": "https://github.com/LevaraOrg/levara-baseline",
       "files": {
+        ".claude/skills/levara-covered/SKILL.md": "sha256:37b082d7bc7caa700e04b820f22ee5e44bd2425375e8f794bdc1b9a29aaf15a5",
         ".claude/skills/levara-english/SKILL.md": "sha256:6ee2a868308dadf0a04475bfeadbb00c38633fdce088374cd433bea9779fb021",
         ".claude/skills/levara-test-first/SKILL.md": "sha256:91c45e3e61857d1632d49fb81553d522a550568c8dbeb8cce9b0f260b08be082",
         ".claude/skills/levara-token-frugal/SKILL.md": "sha256:dd6052bc2bd68a6ac263dad54c1dc2440647b040058ebb7435180f8659c89e5f",
         "docs/adr/ADR-0001-english-is-the-working-language.md": "sha256:bec9c809015ef48f5c6d51481118bbbcd118b1c91bae38cdf53312da26a9ca92",
-        "docs/adr/ADR-0002-test-driven-development.md": "sha256:4ec15cd80575c3745ba09e0a191c880114ae82fe272bd4684e1c40099ad96a7e",
-        "docs/adr/ADR-0003-token-frugal-agent-work.md": "sha256:0bd2f19ce87ac09a988a2659653a747800ac51b52caad7b1fa4738e453ccb8a5"
+        "docs/adr/ADR-0002-test-driven-development.md": "sha256:158852a3f9bd86c7ac11350454ba1106ff350f1e452692171e13728e85bbfb76",
+        "docs/adr/ADR-0003-token-frugal-agent-work.md": "sha256:0bd2f19ce87ac09a988a2659653a747800ac51b52caad7b1fa4738e453ccb8a5",
+        "docs/adr/ADR-0004-coverage-floor-and-static-analysis.md": "sha256:1cda4f78f05627a1fa20064ef6d5444cc3bb5428a38f2845e2aacdaae8e4e4fd"
       }
     }
   }

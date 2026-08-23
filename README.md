@@ -150,7 +150,8 @@ not of the laptop it was checked out on.
 
 ```yaml
 # .limen/meta.yaml
-profiles: levara-baseline@1.0.0
+profiles: levara-baseline@1.0.0, matt-pocock@1.0.0
+pausedSkills: write-a-skill      # inherited, deliberately off here
 skillTarget: .claude/skills      # default
 adrTarget: docs/adr              # default
 ```
@@ -166,6 +167,39 @@ The pairing of ADR and skill is the point: **the ADR is the why, the skill is
 the how.** An ADR is read when someone questions a rule; a skill acts without
 anyone reading it. Shipping only skills leaves norms nobody can argue with;
 shipping only ADRs leaves norms nobody follows.
+
+### Pausing a single skill
+
+A package is inherited whole, but a project does not always want every skill in
+it. `pausedSkills:` is the fine-grained half of the same decision: the package
+stays declared, one skill stops being materialised.
+
+**What deactivates a skill is absence, not documentation.** A skill missing from
+the skill directory cannot be loaded, so no agent has to be told and no text can
+contradict the file system. The declaration exists so a human can see the gap is
+a decision, and so `sync` can undo it — delete the name and the skill comes back.
+
+ADRs are never paused. A decision record explains why a norm exists and stays
+readable where its enforcement is switched off.
+
+Two ways this can lie to you, both of which `check` refuses to stay quiet about:
+
+```
+pausedSkills: "write_a_skill" matches no skill in any declared profile — typo? the skill is still active
+write-a-skill: paused, but still present in .claude/skills and not written by limen — delete it by hand
+```
+
+The first is a typo: you believe a skill is off and it is quietly still there.
+The second is a copy that predates the binding — limen removes only what it
+wrote, because deleting a file it never owned would be worse than the
+inconsistency, so it names the file and leaves the choice to you.
+
+`limen json` carries both lists, so an agent can ask what is available but off
+without reading any directory:
+
+```json
+"skills": { "active": ["caveman", "tdd"], "paused": ["write-a-skill"] }
+```
 
 ### Why a lock file
 
@@ -476,7 +510,7 @@ make cover         # coverage
 make bench         # startup time per call, measured on your machine
 ```
 
-**113 test cases** — unit tests for the parser, resolution and output, plus
+**124 test cases** — unit tests for the parser, resolution and output, plus
 integration tests that run the built binary in real directories. The keychain is
 never touched: the lookup function is injectable, and the CLI tests prove with a
 `PATH=/nonexistent` that `prompt` gets by without `security(1)`.

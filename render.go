@@ -26,6 +26,14 @@ func Prompt(c *Context) string {
 	return strings.Join(parts, " · ")
 }
 
+// skillView is what an agent reads to know which skills this project carries
+// and which it deliberately does without. Active comes from the lock — what was
+// written — so it cannot claim a skill the directory does not hold.
+type skillView struct {
+	Active []string `json:"active"`
+	Paused []string `json:"paused"`
+}
+
 type jsonView struct {
 	Root            string    `json:"root"`
 	Label           string    `json:"label"`
@@ -40,6 +48,7 @@ type jsonView struct {
 	Purpose         string    `json:"purpose"`
 	Topics          []string  `json:"topics"`
 	Profiles        []Profile `json:"profiles"`
+	Skills          skillView `json:"skills"`
 	Service         *Service  `json:"service"`
 	Source          string    `json:"source"`
 	APIKeyPresent   bool      `json:"api_key_present"`
@@ -54,6 +63,7 @@ func RenderJSON(w io.Writer, c *Context, r KeyResolver) error {
 		return err
 	}
 	_, _, present := r.Resolve(c)
+	active, paused := SkillState(c)
 	v := jsonView{
 		Root:            c.Root,
 		Label:           c.Label,
@@ -68,6 +78,7 @@ func RenderJSON(w io.Writer, c *Context, r KeyResolver) error {
 		Purpose:         c.Purpose,
 		Topics:          c.TopicList(),
 		Profiles:        c.ProfileList(),
+		Skills:          skillView{Active: active, Paused: paused},
 		Service:         c.Service,
 		Source:          string(c.Source),
 		APIKeyPresent:   present,
@@ -109,6 +120,12 @@ func RenderShow(w io.Writer, c *Context, r KeyResolver) {
 			names[i] = p.String()
 		}
 		line("profiles", strings.Join(names, ", "))
+	}
+	if active, paused := SkillState(c); len(active) > 0 || len(paused) > 0 {
+		line("skills", strings.Join(active, ", "))
+		if len(paused) > 0 {
+			line("paused", strings.Join(paused, ", "))
+		}
 	}
 	fmt.Fprintf(w, "api key:      %s\n", KeySource(c, r))
 	switch {

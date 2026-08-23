@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const version = "0.7.0"
+const version = "0.8.0"
 
 const usage = `limen ` + version + ` — context and identity per directory
 
@@ -29,7 +29,8 @@ const usage = `limen ` + version + ` — context and identity per directory
                         append a dated note to .limen/notes.md
   limen backlog [--json] open notes across all contexts — where something is to
                         be done; a line reading "- ✓ …" counts as checked off
-  limen profile         inherited norms: what applies here, is it current
+  limen profile         inherited norms: what applies here, is it current,
+                        and which skills are paused (pausedSkills: in meta.yaml)
     … install <source>  fetch an Agent Plugins package (path or git URL)
     … sync [--dry-run]  materialise skills and ADRs into the project
     … check             exit 1 on drift — for pre-commit or CI
@@ -48,7 +49,8 @@ file.
 
 Everything limen owns lives in .limen/: limen.yaml is the descriptor (hard
 truth, never written by tools, machine-local), notes.md collects loose thoughts,
-meta.yaml the hard context facts — among them profiles:, the inherited norms.
+meta.yaml the hard context facts — among them profiles:, the inherited norms,
+and pausedSkills:, the ones deliberately switched off here.
 profiles.lock records what was materialised. meta.yaml can never set identity;
 it is repository content.
 

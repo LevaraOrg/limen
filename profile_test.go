@@ -588,3 +588,235 @@ func TestDroppingOneProfileLeavesTheOthersAlone(t *testing.T) {
 		t.Errorf("check reports drift after a clean deactivation:\n%s", out.String())
 	}
 }
+
+// ------------------------------------------------------------ paused skills
+
+// A project inherits a package whole but does not always want every skill in
+// it. Pausing is the fine-grained half of the same decision: the package stays
+// declared, one skill stops being materialised. Absence is what deactivates —
+// a skill that is not in .claude/skills/ cannot be loaded — so the declaration
+// exists for the human, and the file system enforces it.
+
+// twoSkills is a package carrying two skills and one ADR.
+func twoSkills(t *testing.T) string {
+	t.Helper()
+	return pkg(t, "matt-pocock", "1.0.0",
+		map[string]string{
+			"caveman/SKILL.md":  "---\nname: caveman\n---\nUgh.\n",
+			"zoom-out/SKILL.md": "---\nname: zoom-out\n---\nStep back.\n",
+		},
+		map[string]string{"ADR-0009-house.md": "# ADR-0009\n"})
+}
+
+// pausedProject installs twoSkills and declares it, with `paused` paused.
+func pausedProject(t *testing.T, paused string) (root string) {
+	t.Helper()
+	store(t)
+	src := twoSkills(t)
+	root, _ = project(t, "label: tessera\n")
+	meta := "profiles: matt-pocock@1.0.0\n"
+	if paused != "" {
+		meta += "pausedSkills: " + paused + "\n"
+	}
+	write(t, filepath.Join(root, ".limen", "meta.yaml"), meta)
+
+	var out strings.Builder
+	if _, err := CmdProfile(&out, nil, []string{"install", src}); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func syncNow(t *testing.T, root string) *Context {
+	t.Helper()
+	ctx, _ := Discover(root)
+	var out strings.Builder
+	if _, err := CmdProfile(&out, ctx, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	return ctx
+}
+
+func TestPausedSkillsAreRead(t *testing.T) {
+	root, _ := project(t, "label: tessera\n")
+	write(t, filepath.Join(root, ".limen", "meta.yaml"),
+		"pausedSkills: zoom-out, grill-me\n")
+	ctx, _ := Discover(root)
+
+	got := ctx.PausedSkillList()
+	if len(got) != 2 || got[0] != "zoom-out" || got[1] != "grill-me" {
+		t.Errorf("PausedSkillList() = %+v", got)
+	}
+}
+
+func TestWithoutTheFieldNothingIsPaused(t *testing.T) {
+	root, _ := project(t, "label: plain\n")
+	ctx, _ := Discover(root)
+	if got := ctx.PausedSkillList(); got == nil || len(got) != 0 {
+		t.Errorf("PausedSkillList() = %+v, want an empty non-nil slice", got)
+	}
+}
+
+func TestSyncDoesNotMaterialiseAPausedSkill(t *testing.T) {
+	root := pausedProject(t, "zoom-out")
+	ctx := syncNow(t, root)
+
+	if _, err := os.Stat(filepath.Join(root, ".claude", "skills", "caveman", "SKILL.md")); err != nil {
+		t.Errorf("an unpaused skill is missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".claude", "skills", "zoom-out")); !os.IsNotExist(err) {
+		t.Error("a paused skill was materialised anyway")
+	}
+
+	// The lock must not claim a file it did not write, or check would demand
+	// the presence of something pausing deliberately removed.
+	lock, _ := readLock(ctx)
+	for rel := range lock.Profiles["matt-pocock"].Files {
+		if strings.Contains(rel, "zoom-out") {
+			t.Errorf("the lock lists a paused skill: %s", rel)
+		}
+	}
+}
+
+func TestPausingIsNotADRsuppression(t *testing.T) {
+	// Pausing touches skills only. The decision record explains why a norm
+	// exists and stays readable even when its enforcement is switched off.
+	root := pausedProject(t, "zoom-out")
+	syncNow(t, root)
+	if _, err := os.Stat(filepath.Join(root, "docs", "adr", "ADR-0009-house.md")); err != nil {
+		t.Errorf("pausing a skill removed an ADR: %v", err)
+	}
+}
+
+func TestPausingAfterTheFactRemovesTheSkill(t *testing.T) {
+	root := pausedProject(t, "")
+	syncNow(t, root)
+	live := filepath.Join(root, ".claude", "skills", "zoom-out", "SKILL.md")
+	if _, err := os.Stat(live); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	write(t, filepath.Join(root, ".limen", "meta.yaml"),
+		"profiles: matt-pocock@1.0.0\npausedSkills: zoom-out\n")
+	ctx := syncNow(t, root)
+
+	if _, err := os.Stat(live); !os.IsNotExist(err) {
+		t.Error("pausing left the skill on disk, where an agent would still load it")
+	}
+	if _, err := os.Stat(filepath.Join(root, ".claude", "skills", "caveman", "SKILL.md")); err != nil {
+		t.Errorf("pausing one skill removed another: %v", err)
+	}
+	if code, _ := CmdProfile(&strings.Builder{}, ctx, []string{"check"}); code != 0 {
+		t.Error("check reports drift after a clean pause")
+	}
+}
+
+func TestUnpausingBringsTheSkillBack(t *testing.T) {
+	root := pausedProject(t, "zoom-out")
+	syncNow(t, root)
+
+	write(t, filepath.Join(root, ".limen", "meta.yaml"), "profiles: matt-pocock@1.0.0\n")
+	syncNow(t, root)
+
+	if _, err := os.Stat(filepath.Join(root, ".claude", "skills", "zoom-out", "SKILL.md")); err != nil {
+		t.Errorf("unpausing did not restore the skill: %v", err)
+	}
+}
+
+func TestCheckFlagsAPausedNameThatMatchesNothing(t *testing.T) {
+	// The dangerous typo: you write zoom_out, believe the skill is off, and it
+	// is quietly still there. Silence would be the worst possible answer.
+	root := pausedProject(t, "zoom_out")
+	ctx := syncNow(t, root)
+
+	var out strings.Builder
+	code, err := CmdProfile(&out, ctx, []string{"check"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code == 0 {
+		t.Error("a paused name matching no skill went unreported")
+	}
+	if !strings.Contains(out.String(), "zoom_out") {
+		t.Errorf("the bad name was not shown:\n%s", out.String())
+	}
+}
+
+func TestJSONCarriesActiveAndPausedSkills(t *testing.T) {
+	root := pausedProject(t, "zoom-out")
+	ctx := syncNow(t, root)
+
+	var out strings.Builder
+	if err := RenderJSON(&out, ctx, fixedResolver{}); err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		Skills struct {
+			Active []string `json:"active"`
+			Paused []string `json:"paused"`
+		} `json:"skills"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &v); err != nil {
+		t.Fatal(err)
+	}
+	if len(v.Skills.Active) != 1 || v.Skills.Active[0] != "caveman" {
+		t.Errorf("active = %+v", v.Skills.Active)
+	}
+	if len(v.Skills.Paused) != 1 || v.Skills.Paused[0] != "zoom-out" {
+		t.Errorf("paused = %+v", v.Skills.Paused)
+	}
+}
+
+func TestJSONSkillListsAreEmptyRatherThanNull(t *testing.T) {
+	root, _ := project(t, "label: plain\n")
+	ctx, _ := Discover(root)
+	var out strings.Builder
+	if err := RenderJSON(&out, ctx, fixedResolver{}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"skills":{"active":[],"paused":[]}`) {
+		t.Errorf("json = %s", out.String())
+	}
+}
+
+func TestShowNamesActiveAndPausedSkills(t *testing.T) {
+	root := pausedProject(t, "zoom-out")
+	ctx := syncNow(t, root)
+
+	var out strings.Builder
+	RenderShow(&out, ctx, fixedResolver{})
+	s := out.String()
+	if !strings.Contains(s, "caveman") {
+		t.Errorf("show does not name the active skill:\n%s", s)
+	}
+	if !strings.Contains(s, "zoom-out") || !strings.Contains(s, "paused") {
+		t.Errorf("show does not name the paused skill:\n%s", s)
+	}
+}
+
+func TestCheckWarnsAboutAPausedSkillItDidNotWrite(t *testing.T) {
+	// limen removes only what it wrote. A skill that was already lying in the
+	// project before any profile was bound stays — deleting files it never
+	// owned is not limen's business. But staying silent would mean a skill you
+	// declared paused goes on loading, which is the failure the declaration
+	// exists to prevent. So it is reported and not removed.
+	root := pausedProject(t, "zoom-out")
+	stray := filepath.Join(root, ".claude", "skills", "zoom-out", "SKILL.md")
+	write(t, stray, "---\nname: zoom-out\n---\nDropped here by hand.\n")
+	ctx := syncNow(t, root)
+
+	var out strings.Builder
+	code, err := CmdProfile(&out, ctx, []string{"check"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code == 0 {
+		t.Error("a paused skill still present on disk went unreported")
+	}
+	if !strings.Contains(out.String(), "zoom-out") {
+		t.Errorf("the skill was not named:\n%s", out.String())
+	}
+	if _, err := os.Stat(stray); err != nil {
+		t.Error("limen deleted a file it never wrote")
+	}
+}

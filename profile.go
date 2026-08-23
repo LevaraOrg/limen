@@ -222,6 +222,15 @@ type payload struct {
 // without fetching anything.
 func collect(dir string, c *Context) ([]payload, error) {
 	out := []payload{}
+	// Pausing acts here and nowhere else: a paused skill is simply never
+	// written, so absence — the thing that actually stops an agent loading it —
+	// follows from the declaration rather than from anyone remembering to
+	// delete a directory. ADRs are not filtered; the reasoning behind a norm
+	// stays readable even where its enforcement is off.
+	paused := map[string]bool{}
+	for _, name := range c.PausedSkillList() {
+		paused[name] = true
+	}
 	pairs := []struct{ sub, target string }{
 		{"skills", c.SkillTarget()},
 		{"adr", c.ADRTarget()},
@@ -242,6 +251,9 @@ func collect(dir string, c *Context) ([]payload, error) {
 			if err != nil {
 				return err
 			}
+			if pair.sub == "skills" && paused[firstSegment(rel)] {
+				return nil
+			}
 			out = append(out, payload{from: path, to: filepath.Join(pair.target, rel)})
 			return nil
 		})
@@ -251,6 +263,66 @@ func collect(dir string, c *Context) ([]payload, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].to < out[j].to })
 	return out, nil
+}
+
+// firstSegment is the skill name inside a package: skills/<name>/... .
+func firstSegment(rel string) string {
+	if i := strings.IndexRune(rel, filepath.Separator); i >= 0 {
+		return rel[:i]
+	}
+	return rel
+}
+
+// offeredSkills lists every skill name the declared profiles carry, whether or
+// not it is paused. Used to catch a paused name that matches nothing.
+func offeredSkills(c *Context) map[string]bool {
+	out := map[string]bool{}
+	for _, p := range c.ProfileList() {
+		dir, _, err := installedProfile(p.Name)
+		if err != nil {
+			continue
+		}
+		entries, err := os.ReadDir(filepath.Join(dir, "skills"))
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				out[e.Name()] = true
+			}
+		}
+	}
+	return out
+}
+
+// SkillState reports which skills this project carries and which it has paused.
+// Active is read from the lock — what was actually written is the only honest
+// answer — so it costs one small file read and never consults the store.
+func SkillState(c *Context) (active, paused []string) {
+	active, paused = []string{}, []string{}
+	if c == nil {
+		return
+	}
+	paused = c.PausedSkillList()
+	lock, err := readLock(c)
+	if err != nil {
+		return
+	}
+	prefix := c.SkillTarget() + string(filepath.Separator)
+	seen := map[string]bool{}
+	for _, entry := range lock.Profiles {
+		for rel := range entry.Files {
+			if !strings.HasPrefix(rel, prefix) {
+				continue
+			}
+			if name := firstSegment(strings.TrimPrefix(rel, prefix)); name != "" && !seen[name] {
+				seen[name] = true
+				active = append(active, name)
+			}
+		}
+	}
+	sort.Strings(active)
+	return
 }
 
 func copyFile(from, to string) error {
@@ -616,6 +688,27 @@ func profileCheck(w io.Writer, c *Context) (int, error) {
 			bad++
 		}
 	}
+	// A paused name that matches no skill is the dangerous typo: you believe a
+	// skill is off, and it is quietly still there. Silence would be the worst
+	// possible answer, so it fails the check like any other drift.
+	offered := offeredSkills(c)
+	for _, name := range c.PausedSkillList() {
+		if len(offered) > 0 && !offered[name] {
+			fmt.Fprintf(w, "pausedSkills: %q matches no skill in any declared profile — typo? the skill is still active\n", name)
+			bad++
+			continue
+		}
+		// Present anyway means it predates the binding: limen never wrote it,
+		// so sync will not remove it, and an agent goes on loading a skill the
+		// project declared paused. Reported, never deleted — removing a file
+		// limen does not own would be worse than the inconsistency.
+		if st, err := os.Stat(filepath.Join(c.Root, c.SkillTarget(), name)); err == nil && st.IsDir() {
+			fmt.Fprintf(w, "%s: paused, but still present in %s and not written by limen — delete it by hand\n",
+				name, c.SkillTarget())
+			bad++
+		}
+	}
+
 	// A profile in the lock that meta.yaml no longer declares is drift too:
 	// its files are still on disk, still being read by an agent.
 	for name := range lock.Profiles {

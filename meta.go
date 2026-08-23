@@ -34,6 +34,10 @@ type Meta struct {
 	// what a profile carries. Empty means the conventional default.
 	SkillTarget string
 	ADRTarget   string
+
+	// PausedSkills names skills that a declared profile carries but this
+	// project does not want. Comma-separated, e.g. "zoom-out, grill-me".
+	PausedSkills string
 }
 
 // metaNames are searched in order. The second is the pre-0.4 layout, where the
@@ -71,6 +75,8 @@ func readMeta(root string) *Meta {
 				m.SkillTarget = val
 			case "adrtarget":
 				m.ADRTarget = val
+			case "pausedskills":
+				m.PausedSkills = val
 			}
 		}
 		f.Close()
@@ -138,4 +144,27 @@ func (c *Context) ADRTarget() string {
 		return c.Meta.ADRTarget
 	}
 	return "docs/adr"
+}
+
+// PausedSkillList names the skills this project deliberately does without.
+//
+// Pausing is the fine-grained half of inheriting a package: the package stays
+// declared, one skill stops being materialised. What actually deactivates it is
+// absence — a skill missing from the skill directory cannot be loaded, so no
+// agent has to be told. The declaration exists so a human can see that the gap
+// is a decision rather than an accident, and so `sync` can undo it.
+//
+// ADRs are untouched by this. A decision record explains why a norm exists and
+// stays readable even where its enforcement is switched off.
+func (c *Context) PausedSkillList() []string {
+	list := []string{}
+	if c == nil || c.Meta == nil {
+		return list
+	}
+	for _, item := range strings.Split(c.Meta.PausedSkills, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			list = append(list, item)
+		}
+	}
+	return list
 }

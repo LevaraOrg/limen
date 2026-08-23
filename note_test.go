@@ -26,7 +26,7 @@ func TestCLINoteAppendsUnderOneDateHeading(t *testing.T) {
 	text := string(body)
 	today := time.Now().Format("2006-01-02")
 	for _, want := range []string{
-		"# LIMEN — rollierende Notizen zu tessera",
+		"# LIMEN — rolling notes for tessera",
 		"## " + today,
 		"- Kundenbedürfnisse pro Phase aufschreiben",
 		"- zweiter Gedanke",
@@ -95,5 +95,19 @@ func TestCLINoteFailuresNameTheWayOut(t *testing.T) {
 	// No text at all.
 	if r := runLimen(t, nested, nil, "note"); r.code == 0 {
 		t.Error("note without text should fail")
+	}
+}
+
+func TestCLINoteAtAmbiguousLabelNamesBothRoots(t *testing.T) {
+	env := sharedState(t)
+	rootA, nestedA := project(t, "label: twin\n")
+	rootB, nestedB := project(t, "label: twin\n")
+	runLimen(t, nestedA, env, "register")
+	runLimen(t, nestedB, env, "register")
+
+	r := runLimen(t, tempDir(t), env, "note", "--at", "twin", "text")
+	if r.code == 0 || !strings.Contains(r.stderr, "ambiguous") ||
+		!strings.Contains(r.stderr, rootA) || !strings.Contains(r.stderr, rootB) {
+		t.Errorf("expected both roots in the ambiguity error: exit %d stderr %q", r.code, r.stderr)
 	}
 }

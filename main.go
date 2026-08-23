@@ -205,7 +205,7 @@ func run(args []string, stdout, stderr *os.File) int {
 		}
 
 	default:
-		fmt.Fprintf(stderr, "limen: unbekannter Befehl %q\n\n%s", cmd, usage)
+		fmt.Fprintf(stderr, "limen: unknown command %q\n\n%s", cmd, usage)
 		return 2
 	}
 	return 0

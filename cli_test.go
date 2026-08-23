@@ -416,8 +416,10 @@ func TestCLIHookOutputIsValidShell(t *testing.T) {
 
 func TestCLIUnknownCommandAndHelp(t *testing.T) {
 	dir := tempDir(t)
-	if r := runLimen(t, dir, nil, "nonsense"); r.code != 2 {
-		t.Errorf("unknown command exit = %d, want 2", r.code)
+	// The error speaks English like every other string — ADR-0001 covers CLI
+	// output, and the usage text it is paired with is English already.
+	if r := runLimen(t, dir, nil, "nonsense"); r.code != 2 || !strings.Contains(r.stderr, "unknown command") {
+		t.Errorf("unknown command: exit = %d, stderr = %q, want 2 and an English error", r.code, r.stderr)
 	}
 	if r := runLimen(t, dir, nil, "--help"); r.code != 0 || !strings.Contains(r.stdout, "limen show") {
 		t.Errorf("help output unexpected: exit %d\n%s", r.code, r.stdout)

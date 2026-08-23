@@ -101,7 +101,7 @@ func appendNote(path, label, text string, now time.Time) error {
 
 	entry := &strings.Builder{}
 	if len(body) == 0 {
-		fmt.Fprintf(entry, "# LIMEN — rollierende Notizen zu %s\n", label)
+		fmt.Fprintf(entry, "# LIMEN — rolling notes for %s\n", label)
 	} else if !strings.HasSuffix(string(body), "\n") {
 		entry.WriteString("\n")
 	}

@@ -127,3 +127,18 @@ func TestCLIListWithEmptyRegistryIsSafe(t *testing.T) {
 		t.Errorf("empty list should point at register: exit %d\n%s", r.code, r.stdout)
 	}
 }
+
+func TestStatePathsFallBackUnderHome(t *testing.T) {
+	// Without XDG variables both stores land under ~/.local — the registry in
+	// state (what happened here), the profiles in share (what was fetched).
+	t.Setenv("XDG_STATE_HOME", "")
+	p, err := registryPath()
+	if err != nil || !strings.HasSuffix(p, filepath.Join(".local", "state", "limen", "roots")) {
+		t.Errorf("registryPath() = %q, %v", p, err)
+	}
+	t.Setenv("XDG_DATA_HOME", "")
+	s, err := profileStorePath()
+	if err != nil || !strings.HasSuffix(s, filepath.Join(".local", "share", "limen", "profiles")) {
+		t.Errorf("profileStorePath() = %q, %v", s, err)
+	}
+}

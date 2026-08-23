@@ -151,6 +151,106 @@ func TestLanguageComesFromMetaNotFromTheDescriptor(t *testing.T) {
 	}
 }
 
+// ------------------------------------------------------------ status & list
+
+func TestProfileStatusReportsUnsyncedCurrentAndDrift(t *testing.T) {
+	store(t)
+	src := baseline(t)
+	root, _ := project(t, "label: p\n")
+	write(t, filepath.Join(root, ".limen", "meta.yaml"), "profiles: levara-baseline@1.0.0\n")
+	ctx, _ := Discover(root)
+
+	var out strings.Builder
+	if err := profileInstall(&out, []string{src}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Declared but never synced: status must say so and name the way out.
+	out.Reset()
+	if _, err := CmdProfile(&out, ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "not materialised") {
+		t.Errorf("status before sync = %q", out.String())
+	}
+
+	if err := profileSync(&out, ctx, false); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if _, err := CmdProfile(&out, ctx, []string{"status"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "current") {
+		t.Errorf("status after sync = %q", out.String())
+	}
+
+	// A bent file turns the line into a drift warning.
+	write(t, filepath.Join(root, ".claude", "skills", "english-only", "SKILL.md"), "bent\n")
+	out.Reset()
+	if _, err := CmdProfile(&out, ctx, []string{"status"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "drifted") {
+		t.Errorf("status with drift = %q", out.String())
+	}
+}
+
+func TestProfileStatusWithoutProfilesPointsAtMeta(t *testing.T) {
+	root, _ := project(t, "label: p\n")
+	ctx, _ := Discover(root)
+	var out strings.Builder
+	if _, err := CmdProfile(&out, ctx, []string{"status"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "No profiles declared") ||
+		!strings.Contains(out.String(), "meta.yaml") {
+		t.Errorf("status without profiles = %q", out.String())
+	}
+}
+
+func TestProfileStatusNeedsAContext(t *testing.T) {
+	var out strings.Builder
+	if _, err := CmdProfile(&out, nil, nil); err == nil || !strings.Contains(err.Error(), "limen init") {
+		t.Errorf("err = %v, want a pointer at limen init", err)
+	}
+}
+
+func TestProfileListNamesTheStoreContents(t *testing.T) {
+	store(t)
+	var out strings.Builder
+	if err := profileInstall(&out, []string{baseline(t)}); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if _, err := CmdProfile(&out, nil, []string{"list"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "levara-baseline") || !strings.Contains(out.String(), "1.0.0") {
+		t.Errorf("list = %q", out.String())
+	}
+}
+
+func TestProfileListWithEmptyStorePointsAtInstall(t *testing.T) {
+	store(t)
+	var out strings.Builder
+	if _, err := CmdProfile(&out, nil, []string{"list"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "No profile installed") ||
+		!strings.Contains(out.String(), "limen profile install") {
+		t.Errorf("empty list = %q", out.String())
+	}
+}
+
+func TestProfileUnknownSubcommandFailsWithUsage(t *testing.T) {
+	var out strings.Builder
+	code, err := CmdProfile(&out, nil, []string{"frobnicate"})
+	if code != 2 || err == nil {
+		t.Errorf("code = %d, err = %v, want 2 and an error", code, err)
+	}
+}
+
 // ------------------------------------------------------------ version match
 
 func TestVersionConstraintMatchesOnDotBoundaries(t *testing.T) {

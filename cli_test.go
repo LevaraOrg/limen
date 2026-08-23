@@ -19,7 +19,17 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	binPath = filepath.Join(dir, "limen")
-	build := exec.Command("go", "build", "-o", binPath, ".")
+	// With LIMEN_COVDIR set (make cover), the binary is built instrumented so
+	// the CLI tests count towards coverage — they are where most behaviour
+	// lives, and a metric that cannot see them reports the wrong number. Its
+	// own variable rather than GOCOVERDIR, because `go test` overrides that
+	// one for the test process and the children would write into a temp dir
+	// that is harvested and discarded.
+	buildArgs := []string{"build", "-o", binPath, "."}
+	if os.Getenv("LIMEN_COVDIR") != "" {
+		buildArgs = []string{"build", "-cover", "-o", binPath, "."}
+	}
+	build := exec.Command("go", buildArgs...)
 	build.Stderr = os.Stderr
 	if err := build.Run(); err != nil {
 		panic("go build failed: " + err.Error())
@@ -47,6 +57,11 @@ func runLimen(t *testing.T, dir string, env []string, args ...string) result {
 	base := []string{
 		"HOME=" + os.Getenv("HOME"),
 		"PATH=" + os.Getenv("PATH"),
+	}
+	// Rides along only under `make cover`, so the instrumented binary has a
+	// place to drop its counters; unset otherwise, and nothing changes.
+	if d := os.Getenv("LIMEN_COVDIR"); d != "" {
+		base = append(base, "GOCOVERDIR="+d)
 	}
 	stateSet := false
 	for _, e := range env {
@@ -435,5 +450,18 @@ func TestCLIDefaultsToShow(t *testing.T) {
 	explicit := runLimen(t, nested, nil, "show")
 	if bare.stdout != explicit.stdout {
 		t.Errorf("bare invocation differs from `show`:\n%q\nvs\n%q", bare.stdout, explicit.stdout)
+	}
+}
+
+func TestCLIKeychainImportNamesWhatIsMissing(t *testing.T) {
+	// Without a context there is nothing to import from.
+	if r := runLimen(t, tempDir(t), nil, "keychain-import"); r.code == 0 || !strings.Contains(r.stderr, "no context") {
+		t.Errorf("without context: exit %d stderr %q", r.code, r.stderr)
+	}
+	// With a context whose file carries no key, the command must refuse
+	// rather than store an empty secret.
+	_, nested := project(t, "label: x\n")
+	if r := runLimen(t, nested, nil, "keychain-import"); r.code == 0 || !strings.Contains(r.stderr, "no plaintext key") {
+		t.Errorf("without key: exit %d stderr %q", r.code, r.stderr)
 	}
 }

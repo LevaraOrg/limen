@@ -276,3 +276,36 @@ func TestMigrateOutsideAGitRepoStillWritesTheFile(t *testing.T) {
 		t.Fatalf("action=%q warning=%q", r.Action, r.Warning)
 	}
 }
+
+func TestCLIMigrateReportsEachDirectoryAndASummary(t *testing.T) {
+	orca := tempDir(t)
+	write(t, filepath.Join(orca, ".orca", "identity.yaml"), "name: Matthias\n")
+	already, _ := project(t, "label: done\n")
+	missing := filepath.Join(tempDir(t), "nope")
+
+	r := runLimen(t, tempDir(t), nil, "migrate", orca, already, missing)
+	if r.code != 0 {
+		t.Fatalf("exit %d: %s", r.code, r.stderr)
+	}
+	for _, want := range []string{"  +  ", "  =  ", "not a directory", "1 written, 1 skipped"} {
+		if !strings.Contains(r.stdout, want) {
+			t.Errorf("migrate output missing %q:\n%s", want, r.stdout)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(orca, ".limen", "limen.yaml")); err != nil {
+		t.Error("migrate did not write the descriptor:", err)
+	}
+}
+
+func TestCLIMigrateDryRunAnnouncesButWritesNothing(t *testing.T) {
+	orca := tempDir(t)
+	write(t, filepath.Join(orca, ".orca", "identity.yaml"), "name: Matthias\n")
+
+	r := runLimen(t, tempDir(t), nil, "migrate", "--dry-run", orca)
+	if r.code != 0 || !strings.Contains(r.stdout, "would be written") {
+		t.Errorf("dry-run: exit %d\n%s", r.code, r.stdout)
+	}
+	if _, err := os.Stat(filepath.Join(orca, ".limen", "limen.yaml")); err == nil {
+		t.Error("dry-run wrote the descriptor anyway")
+	}
+}

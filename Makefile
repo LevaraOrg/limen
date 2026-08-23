@@ -30,8 +30,17 @@ vet:
 fmt:
 	gofmt -l -w .
 
+# Coverage counts the CLI tests too: LIMEN_COVDIR makes TestMain build the
+# binary instrumented, every runLimen child drops its counters there, and the
+# unit tests write theirs into the same directory via -test.gocoverdir. One
+# merged profile, so the number reflects what the tests actually exercise.
+# (Not GOCOVERDIR: `go test` overrides that for the test process itself.)
+COVDIR := covdata
+
 cover:
-	go test -coverprofile=coverage.out ./...
+	rm -rf $(COVDIR) && mkdir -p $(COVDIR)
+	LIMEN_COVDIR=$(CURDIR)/$(COVDIR) go test -cover ./... -args -test.gocoverdir=$(CURDIR)/$(COVDIR)
+	go tool covdata textfmt -i=$(COVDIR) -o coverage.out
 	go tool cover -func=coverage.out | tail -1
 	@echo "detail: go tool cover -html=coverage.out"
 

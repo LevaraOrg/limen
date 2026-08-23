@@ -1,5 +1,6 @@
 /limen
 coverage.out
+covdata/
 .DS_Store
 
 # limen: machine-local identity, does not belong in the repository

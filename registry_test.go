@@ -54,6 +54,7 @@ func TestCLIListJSONCarriesTheRoutingFields(t *testing.T) {
 	for _, want := range []string{
 		`"purpose":"Product strategy — role design and presentations"`,
 		`"topics":["design-thinking","customer-journey"]`,
+		`"language":"english"`,
 		`"source":"limen"`,
 	} {
 		if !strings.Contains(r.stdout, want) {

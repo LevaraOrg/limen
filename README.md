@@ -258,6 +258,7 @@ maintaining an index. Trees you never enter by shell are taken in by
 limen list --json
 # [{"root":"/Users/…/product-strategy","label":"product-strategy",
 #   "purpose":"Product strategy — …","topics":["design-thinking","…"],
+#   "language":"english",
 #   "profiles":[{"name":"levara-baseline","version":"1.0.0"}],
 #   "source":"limen"}]
 ```

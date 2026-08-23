@@ -20,7 +20,11 @@ skills are materialised in `.claude/skills/`, the reasoning as ADRs in
 
 - **ADR-0001** — everything committed is English: code, comments, documentation,
   commit messages, test names, CLI output and error strings. Conversation with
-  the user stays in whatever language they write.
+  the user stays in whatever language they write. The same default is
+  machine-readable through limen itself: `limen show`, `limen json` and
+  `limen list --json` report a `language` field, `english` unless a project
+  declares otherwise via `language:` in `.limen/meta.yaml` — ask limen rather
+  than guessing the working language.
 - **ADR-0002** — test-driven: the failing test first, then the least code that
   makes it pass. Bug fixes are never exempt.
 - **ADR-0003** — token-frugal: the cheapest tool that answers the question,

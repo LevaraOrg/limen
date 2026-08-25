@@ -31,6 +31,14 @@ model: claude-opus-5
 # the real API.
 gateway:
 
+# The port this tree's service listens on while you work on it. It is exported
+# as PORT (and LIMEN_DEV_PORT), and  limen ports --caddy  turns it into a
+# reverse-proxy site — so the service and the proxy read the same line.
+# devHost defaults to <label>.localhost;  limen ports  shows the allocation
+# across every registered context and flags a port claimed twice.
+devPort:
+devHost:
+
 # Keychain instead of plaintext. keychainAccount falls back to actor.
 keychainService: limen-anthropic
 keychainAccount:

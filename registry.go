@@ -157,6 +157,7 @@ type listView struct {
 	Topics   []string  `json:"topics"`
 	Language string    `json:"language"`
 	Profiles []Profile `json:"profiles"`
+	Dev      *Dev      `json:"dev"`
 	Service  *Service  `json:"service"`
 	Source   string    `json:"source"`
 }
@@ -180,6 +181,7 @@ func CmdList(w io.Writer, jsonOut bool) error {
 				Topics:   c.TopicList(),
 				Language: c.Language(),
 				Profiles: c.ProfileList(),
+				Dev:      c.DevView(),
 				Service:  c.Service,
 				Source:   string(c.Source),
 			})

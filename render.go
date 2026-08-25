@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -50,6 +51,7 @@ type jsonView struct {
 	Language        string    `json:"language"`
 	Profiles        []Profile `json:"profiles"`
 	Skills          skillView `json:"skills"`
+	Dev             *Dev      `json:"dev"`
 	Service         *Service  `json:"service"`
 	Source          string    `json:"source"`
 	APIKeyPresent   bool      `json:"api_key_present"`
@@ -81,6 +83,7 @@ func RenderJSON(w io.Writer, c *Context, r KeyResolver) error {
 		Language:        c.Language(),
 		Profiles:        c.ProfileList(),
 		Skills:          skillView{Active: active, Paused: paused},
+		Dev:             c.DevView(),
 		Service:         c.Service,
 		Source:          string(c.Source),
 		APIKeyPresent:   present,
@@ -114,6 +117,12 @@ func RenderShow(w io.Writer, c *Context, r KeyResolver) {
 	line("purpose", c.Purpose)
 	line("topics", c.Topics)
 	line("language", c.Language())
+	if dev := c.DevView(); dev != nil {
+		line("dev port", strconv.Itoa(dev.Port))
+		line("dev host", dev.Host)
+	} else if raw := c.DevPortRaw(); raw != "" {
+		line("dev port", fmt.Sprintf("%s (not a port number — 1–65535)", raw))
+	}
 	if c.HasService() {
 		line("service", fmt.Sprintf("%s (%s, %s)", c.Service.Kind, c.Service.APIVersion, c.Service.File))
 	}
@@ -177,6 +186,15 @@ func RenderShell(w io.Writer, c *Context, r KeyResolver) {
 	// Pointing at a local Nuncio makes the model route a property of the
 	// project rather than of the shell it was started from.
 	emit("ANTHROPIC_BASE_URL", c.Gateway)
+	// The development endpoint. PORT rides along under its conventional name
+	// so a dev server picks up the agreed port without being told — that is
+	// the point of declaring it: what limen tells Caddy and what the service
+	// actually binds come from the same line.
+	if dev := c.DevView(); dev != nil {
+		emit("LIMEN_DEV_PORT", strconv.Itoa(dev.Port))
+		emit("LIMEN_DEV_HOST", dev.Host)
+		emit("PORT", strconv.Itoa(dev.Port))
+	}
 	// The segment rides along so the chpwd hook needs a single call.
 	emit("LIMEN_SEGMENT", Prompt(c))
 	if key, _, ok := r.Resolve(c); ok {

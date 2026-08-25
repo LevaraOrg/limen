@@ -43,6 +43,14 @@ type Context struct {
 	KeychainService string
 	KeychainAccount string
 
+	// devPort and devHost are the machine-local half of the development
+	// endpoint; the committed half sits in meta.yaml. Unexported and reached
+	// through Context.DevPort/DevHost, because resolving the two halves in one
+	// place is what keeps the precedence from being restated at every caller.
+	// Kept as written, not parsed here: a typo must be reportable — see dev.go.
+	devPort string
+	devHost string
+
 	// flatFile marks the pre-0.4 layout: a single .limen.yaml in the root
 	// instead of the .limen/ directory. Still read so nothing breaks before
 	// `limen migrate` lifts it; notes stay next to it (see NotesFile).
@@ -198,6 +206,10 @@ func (c *Context) set(key, val string) {
 		c.Purpose = val
 	case "topics":
 		c.Topics = val
+	case "devport":
+		c.devPort = val
+	case "devhost":
+		c.devHost = val
 	case "keychainservice":
 		c.KeychainService = val
 	case "keychainaccount":

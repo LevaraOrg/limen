@@ -42,6 +42,12 @@ type Meta struct {
 	// Language is the declared working language for code and documentation.
 	// Empty means the english default; see Context.Language.
 	Language string
+
+	// DevPort and DevHost are the development endpoint the project agrees on:
+	// committed, so every clone starts the service on the same port. The
+	// descriptor may override both for one machine — see dev.go.
+	DevPort string
+	DevHost string
 }
 
 // metaNames are searched in order. The second is the pre-0.4 layout, where the
@@ -83,6 +89,10 @@ func readMeta(root string) *Meta {
 				m.PausedSkills = val
 			case "language":
 				m.Language = val
+			case "devport":
+				m.DevPort = val
+			case "devhost":
+				m.DevHost = val
 			}
 		}
 		f.Close()

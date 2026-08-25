@@ -494,12 +494,25 @@ needed. Under Homebrew that flag goes into the LaunchAgent:
 ```bash
 plutil -insert ProgramArguments -string --watch -append \
   ~/Library/LaunchAgents/homebrew.mxcl.caddy.plist
-launchctl unload ~/Library/LaunchAgents/homebrew.mxcl.caddy.plist
-launchctl load   ~/Library/LaunchAgents/homebrew.mxcl.caddy.plist
+launchctl bootout   "gui/$(id -u)/homebrew.mxcl.caddy"
+launchctl bootstrap "gui/$(id -u)" \
+  ~/Library/LaunchAgents/homebrew.mxcl.caddy.plist
 ```
 
-Note that `brew services restart caddy` regenerates that file from the formula
-and drops the flag; re-apply the `plutil` line after upgrades. `--watch` is for
+Editing the file is not enough. The older `launchctl unload`/`load` pair is
+deprecated and, when the job is already loaded, can exit 0 having done nothing
+at all — which leaves the previous job definition, and the previous arguments,
+running. It is the silence that is the problem, not the commands: they report
+success either way. So check the process, not the plist:
+
+```bash
+ps -o pid=,etime=,command= -p "$(pgrep -f 'caddy run')"
+# 61817  00:03  …/caddy run --config /opt/homebrew/etc/Caddyfile --watch
+```
+
+An `etime` older than the edit means nothing restarted. `brew services restart
+caddy` does restart it, but regenerates the plist from the formula and drops the
+flag; re-apply the `plutil` line after that and after upgrades. `--watch` is for
 development machines only — it makes an accidental config change take effect
 without anyone confirming it.
 

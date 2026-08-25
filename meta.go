@@ -46,8 +46,9 @@ type Meta struct {
 	// DevPort and DevHost are the development endpoint the project agrees on:
 	// committed, so every clone starts the service on the same port. The
 	// descriptor may override both for one machine — see dev.go.
-	DevPort string
-	DevHost string
+	DevPort      string
+	DevEndpoints string
+	DevHost      string
 }
 
 // metaNames are searched in order. The second is the pre-0.4 layout, where the
@@ -91,6 +92,8 @@ func readMeta(root string) *Meta {
 				m.Language = val
 			case "devport":
 				m.DevPort = val
+			case "devendpoints":
+				m.DevEndpoints = val
 			case "devhost":
 				m.DevHost = val
 			}

@@ -48,8 +48,11 @@ type Context struct {
 	// through Context.DevPort/DevHost, because resolving the two halves in one
 	// place is what keeps the precedence from being restated at every caller.
 	// Kept as written, not parsed here: a typo must be reportable — see dev.go.
-	devPort string
-	devHost string
+	// devEndpoints is the general form (`5173, api=8081 stream`); devPort the
+	// shorthand for a single unnamed endpoint.
+	devPort      string
+	devEndpoints string
+	devHost      string
 
 	// flatFile marks the pre-0.4 layout: a single .limen.yaml in the root
 	// instead of the .limen/ directory. Still read so nothing breaks before
@@ -208,6 +211,8 @@ func (c *Context) set(key, val string) {
 		c.Topics = val
 	case "devport":
 		c.devPort = val
+	case "devendpoints":
+		c.devEndpoints = val
 	case "devhost":
 		c.devHost = val
 	case "keychainservice":

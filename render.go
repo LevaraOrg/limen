@@ -117,11 +117,18 @@ func RenderShow(w io.Writer, c *Context, r KeyResolver) {
 	line("purpose", c.Purpose)
 	line("topics", c.Topics)
 	line("language", c.Language())
-	if dev := c.DevView(); dev != nil {
-		line("dev port", strconv.Itoa(dev.Port))
-		line("dev host", dev.Host)
-	} else if raw := c.DevPortRaw(); raw != "" {
-		line("dev port", fmt.Sprintf("%s (not a port number — 1–65535)", raw))
+	for _, ep := range c.DevEndpoints() {
+		caption, value := "dev", fmt.Sprintf("%d  %s", ep.Port, ep.Host)
+		if ep.Name != "" {
+			caption = "dev " + ep.Name
+		}
+		if ep.Stream {
+			value += "  stream"
+		}
+		line(caption, value)
+	}
+	for _, bad := range c.DevInvalid() {
+		line("dev", "!! "+bad)
 	}
 	if c.HasService() {
 		line("service", fmt.Sprintf("%s (%s, %s)", c.Service.Kind, c.Service.APIVersion, c.Service.File))
@@ -190,10 +197,17 @@ func RenderShell(w io.Writer, c *Context, r KeyResolver) {
 	// so a dev server picks up the agreed port without being told — that is
 	// the point of declaring it: what limen tells Caddy and what the service
 	// actually binds come from the same line.
-	if dev := c.DevView(); dev != nil {
-		emit("LIMEN_DEV_PORT", strconv.Itoa(dev.Port))
-		emit("LIMEN_DEV_HOST", dev.Host)
-		emit("PORT", strconv.Itoa(dev.Port))
+	for i, ep := range c.DevEndpoints() {
+		suffix := ""
+		if ep.Name != "" {
+			suffix = "_" + envSuffix(ep.Name)
+		}
+		emit("LIMEN_DEV_PORT"+suffix, strconv.Itoa(ep.Port))
+		emit("LIMEN_DEV_HOST"+suffix, ep.Host)
+		// PORT can only carry one value; the primary endpoint is that value.
+		if i == 0 {
+			emit("PORT", strconv.Itoa(ep.Port))
+		}
 	}
 	// The segment rides along so the chpwd hook needs a single call.
 	emit("LIMEN_SEGMENT", Prompt(c))

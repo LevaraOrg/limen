@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const version = "0.11.0"
+const version = "0.12.0"
 
 const usage = `limen ` + version + ` — context and identity per directory
 
@@ -30,9 +30,9 @@ const usage = `limen ` + version + ` — context and identity per directory
   limen backlog [--json] open notes across all contexts — where something is to
                         be done; a line reading "- ✓ …" counts as checked off
   limen ports [--json|--caddy]
-                        the development-port allocation across all contexts;
+                        the development-endpoint allocation across all contexts;
                         --caddy writes the reverse-proxy sites. Exit 1 when two
-                        contexts claim the same port or hostname
+                        endpoints claim the same port or hostname
   limen profile         inherited norms: what applies here, is it current,
                         and which skills are paused (pausedSkills: in meta.yaml)
     … install <source>  fetch an Agent Plugins package (path or git URL)
@@ -58,11 +58,16 @@ and pausedSkills:, the ones deliberately switched off here.
 profiles.lock records what was materialised. meta.yaml can never set identity;
 it is repository content.
 
-A development port is declared with devPort: (and optionally devHost:) —
-in meta.yaml what every clone agrees on, in limen.yaml what this machine is
-free to use; the machine-local one wins. limen shell then exports PORT,
-LIMEN_DEV_PORT and LIMEN_DEV_HOST, and limen ports --caddy generates the
-matching Caddy sites, so the service and the proxy read the same line.
+Development endpoints are declared with devEndpoints: — a list of
+[name=]port [stream], e.g.  5173, api=8081 stream. The first is the primary and
+answers under devHost: (default <label>.localhost); a named one hangs off it as
+<host>-<name>.localhost. stream stops the proxy buffering, which server-sent
+events need. devPort: 8080 remains the shorthand for a single unnamed endpoint.
+In meta.yaml it is what every clone agrees on, in limen.yaml what this machine
+is free to use; the machine-local declaration replaces the committed one.
+limen shell exports PORT, LIMEN_DEV_PORT/HOST and LIMEN_DEV_PORT_<NAME> per
+named endpoint, and limen ports --caddy generates the matching Caddy sites, so
+the service and the proxy read the same line.
 
 If a service.yaml (agnostic-stack) sits alongside, its kind is read and
 reported in show/json/list — discovered, not duplicated.

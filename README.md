@@ -32,7 +32,7 @@ limen list      # every registered context, --json for agents
 limen register  # take a context into the registry (the hook does it by itself)
 limen note      # append a dated note to .limen/notes.md, --at <label> from anywhere
 limen backlog   # open notes across all contexts — where something is to be done
-limen ports     # development-port allocation, --caddy writes the proxy sites
+limen ports     # development-endpoint allocation, --caddy writes the proxy sites
 limen profile   # inherited norms: what applies here, is it current (sync, check, install)
 limen init      # create .limen/limen.yaml
 limen migrate   # lift onto the .limen/ layout (flat .limen.yaml, .orca/), for many projects
@@ -76,9 +76,10 @@ model: claude-opus-5
 # property of the project rather than of the shell it was started from.
 gateway: http://localhost:8787
 
-# The development endpoint. Exported as PORT, and turned into a reverse-proxy
-# site by `limen ports --caddy`. devHost defaults to <label>.localhost.
-devPort: 8080
+# The development endpoints: [name=]port [stream], comma-separated. The first
+# is the primary and is exported as PORT. `limen ports --caddy` turns them into
+# reverse-proxy sites. devHost defaults to <label>.localhost.
+devEndpoints: 5173, api=8081
 devHost:
 
 keychainService: limen-anthropic
@@ -101,8 +102,9 @@ lines. `githubUser`, `github-user` and `github_user` are the same field.
 | `CLAUDE_CONFIG_DIR` | `claudeConfigDir`, tilde expanded |
 | `CLOUDSDK_CORE_ACCOUNT`, `CLOUDSDK_CORE_PROJECT` | `gcloudAccount`, `gcloudProject` |
 | `ANTHROPIC_BASE_URL` | `gateway` |
-| `LIMEN_DEV_PORT`, `PORT` | `devPort` |
+| `LIMEN_DEV_PORT`, `PORT` | the primary development endpoint |
 | `LIMEN_DEV_HOST` | `devHost`, otherwise `<label>.localhost` |
+| `LIMEN_DEV_PORT_<NAME>`, `LIMEN_DEV_HOST_<NAME>` | one pair per named endpoint |
 | `ANTHROPIC_API_KEY` | environment variable, otherwise the keychain |
 
 Empty fields are left out. Moving into a project without `gcloudProject`
@@ -313,7 +315,7 @@ them as `done`) but stops showing them as open. Whoever finishes something —
 human or agent — checks the line off and, where useful, appends a dated
 follow-up note saying what was worked in where.
 
-## Development ports and the proxy — `limen ports`
+## Development endpoints and the proxy — `limen ports`
 
 Which port does this project bind while you work on it? The question looks
 local and is not: the answer only matters *against the other projects on this
@@ -321,61 +323,96 @@ machine*. Whether Circlead may have 8080 depends on whether Tessera already has
 it. Nothing in a `docker-compose.yml` or a `.env` can see that — the register
 can, because it already knows every tree.
 
-So the port is declared in the context, in whichever half it belongs to:
+And a project is rarely *one* port. A UI dev server and the backend it proxies
+to are two; a stream endpoint needs the proxy to stop buffering. So what a
+context declares is a list:
 
 ```yaml
 # .limen/meta.yaml — committed: what the project agrees on
-devPort: 8080
+devEndpoints: 5173, api=8081
 
 # .limen/limen.yaml — machine-local: what this laptop is free to give it
-devPort: 18080
-devHost: circlead.localhost     # optional, default <label>.localhost
+devEndpoints: 8080 stream, mcp=8084
+devHost: circlead.localhost      # optional, default <label>.localhost
 ```
 
-The machine-local one wins. A collision is a property of one machine, and only
-the machine-local half can resolve it without asking everyone else to re-clone.
+Each item is `[name=]port [stream]`:
 
-`limen ports` is the allocation table across every registered context:
+| Part | Meaning |
+|---|---|
+| the first item | the primary endpoint — what `PORT` exports, answering under `devHost` |
+| `name=` | a further endpoint, answering under `<host>-<name>.localhost` |
+| `stream` | `flush_interval -1` in the generated site — server-sent events and MCP streams arrive in one lump at the end of the request without it, which looks exactly like a hung server |
+
+`devPort: 8080` remains the shorthand for a single unnamed endpoint.
+
+The machine-local declaration **replaces** the committed one rather than merging
+into it — a half-overridden list would be a third thing that neither file
+states. A collision is a property of one laptop, and only the local declaration
+can resolve it without asking everyone else to re-clone.
+
+Named endpoints hang *beside* the base host, not below it: `tessera-api.localhost`
+rather than `api.tessera.localhost`. One label under `.localhost` is what
+browsers, Caddy and existing bookmarks already handle without anyone having to
+think about wildcard certificates.
+
+### The allocation table
 
 ```
-circlead   8080  circlead.localhost   /Users/…/circlead
-tessera    8081  tessera.localhost    /Users/…/tessera
+cxo-dashboard       4317  dashboard.localhost                   /Users/…/cxo-dashboard
+Tessera             5173  tessera.localhost                     /Users/…/Tessera
+text-anonymizer     8000  anonymizer.localhost          stream  /Users/…/text-anonymizer
+circlead-platform   8080  circlead.localhost            stream  /Users/…/circlead-platform
+Tessera/api         8081  tessera-api.localhost                 /Users/…/Tessera
+orca                8083  orca.localhost                stream  /Users/…/orca
 
-2 declared, no conflicts.
+6 endpoint(s), no conflicts.
 ```
 
-It **exits 1** when two contexts claim the same port or the same hostname, and
-when a `devPort:` is not a port number at all — so it can stand in front of
-`caddy reload` or in a pre-commit hook. `--json` carries the same table with a
-`conflict` field per entry.
+`limen ports` **exits 1** when two endpoints claim the same port or the same
+hostname, and when a declaration cannot be read at all — so it can stand in
+front of `caddy reload` or in a pre-commit hook. `--json` carries the same table
+with a `conflict` field per entry.
 
 ### Feeding Caddy from it
 
 `limen ports --caddy` renders the same table as reverse-proxy sites:
 
 ```caddyfile
-# Generated by limen 0.11.0 — do not edit; regenerate with `limen ports --caddy`.
+# Generated by limen 0.12.0 — do not edit; regenerate with `limen ports --caddy`.
 # Import it from your Caddyfile:    import limen.caddy
 
-# circlead — /Users/…/circlead
+# circlead-platform — /Users/…/circlead-platform
 circlead.localhost {
-	reverse_proxy 127.0.0.1:8080
+	reverse_proxy 127.0.0.1:8080 {
+		flush_interval -1
+	}
+}
+
+# Tessera/api — /Users/…/Tessera
+tessera-api.localhost {
+	reverse_proxy 127.0.0.1:8081
 }
 ```
 
-Wire it in once and never touch it again:
+It generates the sites and nothing around them, because it is meant to be
+**imported** next to whatever a Caddyfile carries that has no port to declare —
+a static `file_server`, a TLS-only host. Write it next to the Caddyfile that is
+actually loaded (`caddy environ | grep -i caddyfile`, or the `--config` in
+`ps`; Homebrew's is `/opt/homebrew/etc/Caddyfile`):
 
 ```bash
-limen ports --caddy > ~/.config/caddy/limen.caddy
+limen ports --caddy > /opt/homebrew/etc/limen.caddy
 ```
 
 ```caddyfile
-# ~/.config/caddy/Caddyfile
+# /opt/homebrew/etc/Caddyfile
 import limen.caddy
 ```
 
 ```bash
-caddy reload --config ~/.config/caddy/Caddyfile
+caddy validate --config /opt/homebrew/etc/Caddyfile   # exits non-zero on a clash
+caddy reload   --config /opt/homebrew/etc/Caddyfile
 ```
 
 Regenerating is one command, and it is the *only* way that file should change —
@@ -387,10 +424,11 @@ a certificate warning.
 ### Why this closes the loop
 
 The same line feeds both ends. `limen shell` exports `PORT` under its
-conventional name, so a dev server started in that directory binds the port the
-proxy is already routing to; `limen ports --caddy` derives the site from the
-same declaration. There is no second place to update, so the proxy cannot point
-at a port the service stopped using — the failure mode this exists to prevent.
+conventional name and `LIMEN_DEV_PORT_API` for each named endpoint, so a dev
+server started in that directory binds the port the proxy is already routing to;
+`limen ports --caddy` derives the sites from the same declaration. There is no
+second place to update, so the proxy cannot point at a port the service stopped
+using — the failure mode this exists to prevent.
 
 Directories that declare nothing stay out of the table. Most trees are not
 services and must not pretend to be.
@@ -631,7 +669,7 @@ context.go     upward search, flat YAML parser, Context
 meta.go        .limen/meta.yaml — profiles and targets, its own key switch
 profile.go     store, Agent Plugins package, sync/check, the lock
 keychain.go    resolution order, security(1), injectable for tests
-dev.go         devPort/devHost, the allocation table, the Caddyfile
+dev.go         devEndpoints/devHost, the allocation table, the Caddyfile
 render.go      show / json / shell / prompt
 commands.go    init, keychain-import, shell hooks
 integrations/

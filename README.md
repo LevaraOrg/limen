@@ -396,10 +396,14 @@ tessera-api.localhost {
 ```
 
 It generates the sites and nothing around them, because it is meant to be
-**imported** next to whatever a Caddyfile carries that has no port to declare —
-a static `file_server`, a TLS-only host. Write it next to the Caddyfile that is
-actually loaded (the `--config` in `ps`; Homebrew's is
-`/opt/homebrew/etc/Caddyfile`):
+**imported**, not to take the file over. Write it next to the Caddyfile that is
+actually loaded — which is the one named in the running process, not the one you
+remember writing:
+
+```bash
+ps -o command= -p "$(pgrep -f 'caddy run')"
+# /opt/homebrew/opt/caddy/bin/caddy run --config /opt/homebrew/etc/Caddyfile
+```
 
 ```caddyfile
 # /opt/homebrew/etc/Caddyfile
@@ -420,6 +424,66 @@ proxy the difference between a warning and an outage is exactly that refusal.
 written: /opt/homebrew/etc/limen.caddy (6 endpoint(s))
 Caddy reads it on  caddy reload  — or by itself, if it runs with --watch.
 ```
+
+### Adopting an existing Caddyfile
+
+A machine that already proxies its development services has the ports written
+down twice the moment limen learns them — which is the drift this exists to
+prevent, so the hand-written sites have to move rather than be duplicated.
+
+Back up first; the file is the only record of what used to work.
+
+```bash
+cp -p /opt/homebrew/etc/Caddyfile /opt/homebrew/etc/Caddyfile.bak
+```
+
+Then read each site as a declaration and put it where it belongs:
+
+| In the Caddyfile | As a declaration |
+|---|---|
+| `circlead.localhost → :8080` with `flush_interval -1` | `devEndpoints: 8080 stream` + `devHost: circlead.localhost` |
+| `tessera.localhost → :5173` and `tessera-api.localhost → :8081` | `devEndpoints: 5173, api=8081` in one context |
+| `dashboard.localhost → :4317` in a repo labelled `cxo-dashboard` | `devEndpoints: 4317` + `devHost: dashboard.localhost` |
+
+The `devHost:` lines are what keep the URLs you already have in bookmarks and in
+other tools: the hostname does not have to follow the label, and changing it
+because a directory happens to be called something else would be a migration
+nobody asked for.
+
+**What does not move.** limen renders a reverse proxy and one flag. A site with
+no port behind it — a static `file_server`, a redirect, a host that only exists
+for its certificate — has nothing to declare, and directives beyond
+`flush_interval` (matchers, headers, `basic_auth`, `tls` options) have no field.
+Those stay hand-written in the parent file, which is exactly why `--caddy` emits
+sites and no wrapper.
+
+Then the parent file is only the frame:
+
+```caddyfile
+# The reverse-proxy sites are NOT maintained here. They are devEndpoints:
+# in each project's .limen/ descriptor:
+#     limen ports --caddy --write /opt/homebrew/etc/limen.caddy
+import limen.caddy
+
+# What has no port stays here.
+https://mosyle.local {
+	root * "/Users/…/PKG-Apps"
+	file_server browse
+}
+```
+
+Write the generated half, check the whole, then load it:
+
+```bash
+limen ports --caddy --write /opt/homebrew/etc/limen.caddy
+caddy validate --config /opt/homebrew/etc/Caddyfile
+caddy reload   --config /opt/homebrew/etc/Caddyfile
+```
+
+`caddy validate` is not ceremony here. `limen ports` can only see conflicts
+among the contexts it knows; a generated site colliding with a hand-written one
+in the parent file is invisible to it, and Caddy reports that as
+`ambiguous site definition` rather than picking a winner.
 
 ### Letting Caddy pick it up by itself
 
@@ -444,6 +508,37 @@ which is why its first line says so. `.localhost` names need no `/etc/hosts`
 entry and Caddy issues an internal certificate for them, so
 `https://circlead.localhost` works without a port number in the URL and without
 a certificate warning.
+
+### When a name does not answer
+
+The chain has four links, and each one can be checked on its own — in this
+order, because a failure early on explains everything after it.
+
+```bash
+# 1. does limen know the endpoint, and without conflicts?
+limen ports
+
+# 2. is it in the generated file?
+cat /opt/homebrew/etc/limen.caddy
+
+# 3. is it in the configuration Caddy is actually running?
+curl -s localhost:2019/config/ | python3 -m json.tool | grep -A2 host
+
+# 4. does the service behind it answer?
+curl -sI https://circlead.localhost
+```
+
+A `502` at step 4 is the good failure: the proxy is right and the service is not
+running. A `404` or a connection refused means the name never reached step 3 —
+the file was written but nothing reloaded, which is what `--watch` is for.
+
+`--watch` costs the safety net of `caddy validate`, because nobody is asked
+before the reload. Caddy does not crash on a broken configuration — it refuses
+it and keeps serving the previous one — but it says so only in the log:
+
+```bash
+tail -f /opt/homebrew/var/log/caddy.log
+```
 
 ### Why this closes the loop
 

@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const version = "0.12.0"
+const version = "0.13.0"
 
 const usage = `limen ` + version + ` — context and identity per directory
 
@@ -29,10 +29,12 @@ const usage = `limen ` + version + ` — context and identity per directory
                         append a dated note to .limen/notes.md
   limen backlog [--json] open notes across all contexts — where something is to
                         be done; a line reading "- ✓ …" counts as checked off
-  limen ports [--json|--caddy]
+  limen ports [--json|--caddy] [--write <path>]
                         the development-endpoint allocation across all contexts;
-                        --caddy writes the reverse-proxy sites. Exit 1 when two
-                        endpoints claim the same port or hostname
+                        --caddy renders the reverse-proxy sites, --write puts
+                        them in a file only when they changed. Exit 1 when two
+                        endpoints claim the same port or hostname — and then
+                        --write refuses, so a watching proxy never sees it
   limen profile         inherited norms: what applies here, is it current,
                         and which skills are paused (pausedSkills: in meta.yaml)
     … install <source>  fetch an Agent Plugins package (path or git URL)

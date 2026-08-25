@@ -28,9 +28,12 @@ package main
 // so nothing that already declares it has to be rewritten.
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -338,14 +341,24 @@ func others(list []string, self string) []string {
 // stand in a pre-commit hook or before `caddy reload`.
 func CmdPorts(w io.Writer, args []string) (int, error) {
 	jsonOut, caddyOut := false, false
-	for _, a := range args {
-		switch a {
+	target := ""
+	for i := 0; i < len(args); i++ {
+		switch a := args[i]; a {
 		case "--json":
 			jsonOut = true
 		case "--caddy":
 			caddyOut = true
+		case "--write":
+			// --write only ever writes the Caddy rendering; there is no other
+			// file shape worth putting on disk, so it implies --caddy rather
+			// than demanding it alongside.
+			i++
+			if i >= len(args) {
+				return 0, fmt.Errorf("--write needs a path")
+			}
+			target, caddyOut = args[i], true
 		default:
-			return 0, fmt.Errorf("unknown flag %q for ports (--json, --caddy)", a)
+			return 0, fmt.Errorf("unknown flag %q for ports (--json, --caddy, --write <path>)", a)
 		}
 	}
 	if jsonOut && caddyOut {
@@ -368,6 +381,30 @@ func CmdPorts(w io.Writer, args []string) (int, error) {
 		}
 	}
 
+	if target != "" {
+		// Nothing limen already knows to be wrong may reach the file. With
+		// `caddy run --watch` the proxy picks a new file up within the second,
+		// so refusing here is the difference between a warning and an outage.
+		if code != 0 {
+			return code, fmt.Errorf("not written: %s", strings.Join(reasons(entries, complaints), "; "))
+		}
+		var buf bytes.Buffer
+		writeCaddyfile(&buf, entries, complaints)
+		changed, err := writeIfChanged(target, buf.Bytes())
+		if err != nil {
+			return 0, err
+		}
+		verb := "unchanged"
+		if changed {
+			verb = "written"
+		}
+		fmt.Fprintf(w, "%s: %s (%d endpoint(s))\n", verb, target, len(entries))
+		if changed {
+			fmt.Fprintln(w, "Caddy reads it on  caddy reload  — or by itself, if it runs with --watch.")
+		}
+		return 0, nil
+	}
+
 	switch {
 	case jsonOut:
 		b, err := json.Marshal(entries)
@@ -381,6 +418,51 @@ func CmdPorts(w io.Writer, args []string) (int, error) {
 		writePortTable(w, entries, complaints)
 	}
 	return code, nil
+}
+
+// reasons gathers what makes a table unfit to be written, for one error line.
+func reasons(entries []portEntry, complaints []string) []string {
+	out := append([]string{}, complaints...)
+	seen := map[string]bool{}
+	for _, e := range entries {
+		if e.Conflict == "" || seen[e.Conflict] {
+			continue
+		}
+		seen[e.Conflict] = true
+		out = append(out, e.Conflict)
+	}
+	return out
+}
+
+// writeIfChanged replaces the file only when the content actually differs, so
+// the command is cheap to run often and a watching proxy is not reloaded for
+// nothing. The write goes through a temporary file in the same directory and a
+// rename, so a reader — Caddy, a second later — never sees a half-written
+// configuration.
+func writeIfChanged(path string, body []byte) (bool, error) {
+	if old, err := os.ReadFile(path); err == nil && bytes.Equal(old, body) {
+		return false, nil
+	}
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".limen-caddy-*")
+	if err != nil {
+		return false, err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(body); err != nil {
+		tmp.Close()
+		return false, err
+	}
+	if err := tmp.Close(); err != nil {
+		return false, err
+	}
+	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
+		return false, err
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func writePortTable(w io.Writer, entries []portEntry, complaints []string) {

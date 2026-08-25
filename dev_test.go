@@ -530,4 +530,85 @@ func TestCLIPortsFlagsACollisionAcrossEndpoints(t *testing.T) {
 	}
 }
 
+// --- --write ---------------------------------------------------------------
+
+// The generated file is meant to be written often and reloaded rarely, so
+// writing is idempotent: identical content leaves the file alone, and the
+// output says which of the two happened.
+func TestCLIPortsWriteCreatesAndThenLeavesAlone(t *testing.T) {
+	env := sharedState(t)
+	devProject(t, env, "circlead", "8080")
+	target := filepath.Join(tempDir(t), "limen.caddy")
+
+	r := runLimen(t, tempDir(t), env, "ports", "--caddy", "--write", target)
+	if r.code != 0 {
+		t.Fatalf("exit %d: %s", r.code, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "written") {
+		t.Errorf("stdout must report the write:\n%s", r.stdout)
+	}
+	body, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), "circlead.localhost {") {
+		t.Errorf("file content:\n%s", body)
+	}
+	// What --write puts in the file is exactly what --caddy prints.
+	if printed := runLimen(t, tempDir(t), env, "ports", "--caddy"); printed.stdout != string(body) {
+		t.Error("--write and --caddy disagree about the content")
+	}
+
+	before, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r = runLimen(t, tempDir(t), env, "ports", "--caddy", "--write", target)
+	if r.code != 0 || !strings.Contains(r.stdout, "unchanged") {
+		t.Errorf("second run: exit %d, stdout %q", r.code, r.stdout)
+	}
+	after, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after.ModTime().Equal(before.ModTime()) {
+		t.Error("an unchanged configuration must not be rewritten")
+	}
+}
+
+// A configuration that limen already knows to be wrong must never reach the
+// file: with --watch the proxy would pick it up within the second.
+func TestCLIPortsWriteRefusesAConflict(t *testing.T) {
+	env := sharedState(t)
+	devProject(t, env, "circlead", "8080")
+	target := filepath.Join(tempDir(t), "limen.caddy")
+	if r := runLimen(t, tempDir(t), env, "ports", "--caddy", "--write", target); r.code != 0 {
+		t.Fatalf("setup write failed: %s", r.stderr)
+	}
+
+	devProject(t, env, "other", "8080")
+	r := runLimen(t, tempDir(t), env, "ports", "--caddy", "--write", target)
+	if r.code != 1 {
+		t.Fatalf("want exit 1 on a conflict, got %d:\n%s%s", r.code, r.stdout, r.stderr)
+	}
+	body, _ := os.ReadFile(target)
+	if strings.Contains(string(body), "other") {
+		t.Error("the conflicting configuration was written anyway")
+	}
+	if !strings.Contains(r.stderr, "8080") {
+		t.Errorf("stderr must say why nothing was written: %q", r.stderr)
+	}
+}
+
+func TestCLIPortsWriteNeedsAPathAndNotJSON(t *testing.T) {
+	env := sharedState(t)
+	if r := runLimen(t, tempDir(t), env, "ports", "--write"); r.code == 0 {
+		t.Error("--write without a path must fail")
+	}
+	r := runLimen(t, tempDir(t), env, "ports", "--json", "--write", filepath.Join(tempDir(t), "x"))
+	if r.code == 0 {
+		t.Error("--json and --write must not combine")
+	}
+}
+
 var _ = os.Getenv

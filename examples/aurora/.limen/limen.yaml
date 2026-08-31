@@ -1,0 +1,13 @@
+# limen — machine-local identity of this directory. In a real project this
+# file is NOT committed; it is committed here so the example works on clone.
+label: aurora
+purpose: Demo project — northern-lights forecast API and dashboard
+topics: weather, api, dashboard
+
+actor: Ada Lovelace
+githubUser: ada-codes
+provider: anthropic
+model: claude-sonnet-5
+
+# UI dev server first (becomes PORT), the API as a named stream endpoint.
+devEndpoints: 5173, api=8100 stream

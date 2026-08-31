@@ -1,9 +1,5 @@
 // limen — ‹limen›, the threshold. It says which identity applies behind this
 // directory threshold, and exports it.
-//
-// Replaces `orca env`. Same purpose, without the JVM: `orca env json` cost
-// 530 ms on this machine, which is why the old WezTerm integration cached its
-// result for 15 seconds and was wrong for a while after every directory change.
 package main
 
 import (
@@ -13,7 +9,7 @@ import (
 	"time"
 )
 
-const version = "0.13.0"
+const version = "0.14.0"
 
 const usage = `limen ` + version + ` — context and identity per directory
 
@@ -43,15 +39,14 @@ const usage = `limen ` + version + ` — context and identity per directory
     … list              what the store holds
   limen init            create .limen/limen.yaml in the current directory
   limen migrate [path…] lift onto the .limen/ layout — moves a flat .limen.yaml
-                        along with LIMEN.md/LIMEN-META.yaml, adopts .orca/,
-                        otherwise creates anew. --dry-run only shows.
+                        along with LIMEN.md/LIMEN-META.yaml, otherwise creates
+                        anew. --dry-run only shows.
   limen keychain-import move a plaintext key into the keychain
   limen hook zsh|bash   shell hook to wire in
 
 The search runs upward for .limen/limen.yaml, then for a flat .limen.yaml (old
-layout), then for .orca/. Without a context: json prints {}, shell stays silent,
-both with exit 0 — so the call can be made unconditionally from a shell startup
-file.
+layout). Without a context: json prints {}, shell stays silent, both with
+exit 0 — so the call can be made unconditionally from a shell startup file.
 
 Everything limen owns lives in .limen/: limen.yaml is the descriptor (hard
 truth, never written by tools, machine-local), notes.md collects loose thoughts,
@@ -109,7 +104,7 @@ func run(args []string, stdout, stderr *os.File) int {
 	switch cmd {
 	case "show":
 		if !found {
-			fmt.Fprintf(stderr, "limen: no .limen.yaml and no .orca/ above %s\n", cwd)
+			fmt.Fprintf(stderr, "limen: no .limen/limen.yaml above %s\n", cwd)
 			return 1
 		}
 		RenderShow(out, ctx, resolver)

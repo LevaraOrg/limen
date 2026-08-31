@@ -182,13 +182,3 @@ func TestRenderShowNamesTheLanguage(t *testing.T) {
 		t.Errorf("show must name the working language, got:\n%s", buf.String())
 	}
 }
-
-func TestRenderShowMarksLegacySource(t *testing.T) {
-	var buf bytes.Buffer
-	c := sampleContext()
-	c.Source = SourceOrca
-	RenderShow(&buf, c, fixedResolver{})
-	if !strings.Contains(buf.String(), "legacy") {
-		t.Error("a legacy .orca tree must be labelled as such")
-	}
-}

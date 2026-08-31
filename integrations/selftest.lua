@@ -32,9 +32,9 @@ check('color tessera', limen.color_for({ label = 'tessera' }), limen.palette.tes
 check('color case-insensitive', limen.color_for({ label = 'Circlead' }), limen.palette.circlead)
 check('color unknown', limen.color_for({ label = 'whatever' }), limen.default_color)
 
--- Prefix matching. label defaults to the directory name, so a legacy .orca
--- project reads as circlead-platform, not circlead — without this every project
--- came out the same default purple, which is worse than the predecessor.
+-- Prefix matching. label defaults to the directory name, so a project reads
+-- as circlead-platform, not circlead — without this every such project would
+-- come out the same default purple.
 check('prefix: circlead-platform', limen.color_for({ label = 'circlead-platform' }),
   limen.palette.circlead)
 check('prefix: levara-website', limen.color_for({ label = 'levara-website' }),

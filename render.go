@@ -148,8 +148,6 @@ func RenderShow(w io.Writer, c *Context, r KeyResolver) {
 	}
 	fmt.Fprintf(w, "api key:      %s\n", KeySource(c, r))
 	switch {
-	case c.Source == SourceOrca:
-		fmt.Fprintln(w, "source:       .orca/ (legacy)")
 	case c.flatFile:
 		fmt.Fprintln(w, "source:       .limen.yaml (old — `limen migrate` lifts it into .limen/)")
 	default:

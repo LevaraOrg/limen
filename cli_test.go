@@ -244,24 +244,6 @@ func TestCLIWithoutContextIsSafeToCallFromAStartupFile(t *testing.T) {
 	}
 }
 
-func TestCLILegacyOrcaTree(t *testing.T) {
-	root := tempDir(t)
-	write(t, filepath.Join(root, ".orca", "config.yaml"),
-		"---\nprovider: anthropic\nmodel: claude-opus-4-5\n")
-	write(t, filepath.Join(root, ".orca", "identity.yaml"),
-		"---\nactorId: \"abc\"\nname: \"Leo\"\n")
-
-	r := runLimen(t, root, nil, "show")
-	if r.code != 0 {
-		t.Fatalf("exit %d, stderr %s", r.code, r.stderr)
-	}
-	for _, want := range []string{"Leo", "claude-opus-4-5", "legacy"} {
-		if !strings.Contains(r.stdout, want) {
-			t.Errorf("missing %q in:\n%s", want, r.stdout)
-		}
-	}
-}
-
 func TestCLINeverPrintsAPlaintextKey(t *testing.T) {
 	_, nested := project(t, "label: leaky\nprovider: anthropic\napiKey: sk-ant-SECRETVALUE\n")
 

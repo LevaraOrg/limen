@@ -25,10 +25,10 @@ var githubRemote = regexp.MustCompile(`github\.com[:/]([^/]+)/`)
 // remoteOwner reads the owner out of the origin remote.
 //
 // Offered as a COMMENT in the generated file, never as a value. Checked against
-// the five projects whose real githubUser was known from .orca/, it was wrong in
-// four: the remote owner is frequently an organisation (LevaraOrg) rather than
-// the account in use, the same person uses different accounts per project
-// (levaraleo, tgmatthias), and for a fork it is someone else entirely (palamim).
+// five projects whose real githubUser was known, it was wrong in four: the
+// remote owner is frequently an organisation rather than the account in use,
+// the same person uses different accounts per project, and for a fork it is
+// someone else entirely.
 //
 // A wrong account name in the status line is worse than none, because telling a
 // work checkout from a private one is the entire job of that field.
@@ -47,13 +47,12 @@ func remoteOwner(dir string) string {
 
 // Migrate brings one directory to the .limen/ layout.
 //
-// Three sources, in order: a flat pre-0.4 .limen.yaml, which is lifted into
-// .limen/ together with its LIMEN.md and LIMEN-META.yaml companions; an
-// existing .orca/ tree, whose values are carried over verbatim; or — when
-// there is neither — the directory name as label and nothing else. Nothing is
-// invented: an empty `model` is better than a guessed one, because the status
-// line would then state something untrue. Even the remote owner only appears
-// as a commented hint; see remoteOwner.
+// Two sources, in order: a flat pre-0.4 .limen.yaml, which is lifted into
+// .limen/ together with its LIMEN.md and LIMEN-META.yaml companions; or —
+// when there is none — the directory name as label and nothing else. Nothing
+// is invented: an empty `model` is better than a guessed one, because the
+// status line would then state something untrue. Even the remote owner only
+// appears as a commented hint; see remoteOwner.
 func Migrate(w io.Writer, dir string, dryRun bool) MigrateResult {
 	res := MigrateResult{Dir: dir}
 	target := filepath.Join(dir, ".limen", "limen.yaml")
@@ -68,18 +67,6 @@ func Migrate(w io.Writer, dir string, dryRun bool) MigrateResult {
 		return liftFlatLayout(dir, dryRun)
 	}
 
-	// Only this directory, not an inherited one from a parent: migrating a
-	// subdirectory because its parent has a context would scatter files.
-	var src *Context
-	if fileExists(filepath.Join(dir, ".orca", "config.yaml")) ||
-		fileExists(filepath.Join(dir, ".orca", "identity.yaml")) {
-		ctx := &Context{Root: dir, Source: SourceOrca}
-		ctx.applyFile(filepath.Join(dir, ".orca", "identity.yaml"))
-		ctx.applyFile(filepath.Join(dir, ".orca", "config.yaml"))
-		ctx.finish()
-		src = ctx
-	}
-
 	var b strings.Builder
 	fields := 0
 	line := func(key, value string) {
@@ -90,33 +77,16 @@ func Migrate(w io.Writer, dir string, dryRun bool) MigrateResult {
 		fields++
 	}
 
-	if src != nil {
-		b.WriteString("# limen — taken over from .orca/ as it stood at migration time.\n")
-		line("label", src.Label)
-		line("actor", src.Actor)
-		line("githubUser", src.GithubUser)
-		line("claudeConfigDir", src.ClaudeDir)
-		line("gcloudAccount", src.GcloudAccount)
-		line("gcloudProject", src.GcloudProject)
-		line("provider", src.Provider)
-		line("model", src.Model)
-		if src.HasPlaintextKey() {
-			// Deliberately not carried over: copying it would spread the problem
-			// into a second file instead of moving it out of both.
-			res.Warning = "apiKey NOT carried over — move it with `limen keychain-import`, then delete it from .orca/config.yaml"
-		}
+	b.WriteString("# limen — newly created. Only the label is set; everything else\n")
+	b.WriteString("# would have to be guessed, and would then be wrong in the status line.\n")
+	line("label", filepath.Base(dir))
+	b.WriteString("actor:\nprovider:\nmodel:\n")
+	if owner := remoteOwner(dir); owner != "" {
+		// A hint, not a value. See remoteOwner for why.
+		fmt.Fprintf(&b, "\n# githubUser:   # origin belongs to \"%s\" — an organisation or\n"+
+			"#               # another account? Please fill this in yourself.\n", owner)
 	} else {
-		b.WriteString("# limen — newly created. Only the label is set; everything else\n")
-		b.WriteString("# would have to be guessed, and would then be wrong in the status line.\n")
-		line("label", filepath.Base(dir))
-		b.WriteString("actor:\nprovider:\nmodel:\n")
-		if owner := remoteOwner(dir); owner != "" {
-			// A hint, not a value. See remoteOwner for why.
-			fmt.Fprintf(&b, "\n# githubUser:   # origin belongs to \"%s\" — an organisation or\n"+
-				"#               # another account? Please fill this in yourself.\n", owner)
-		} else {
-			b.WriteString("githubUser:\n")
-		}
+		b.WriteString("githubUser:\n")
 	}
 	b.WriteString("\n# Points ANTHROPIC_BASE_URL at a local Nuncio. Empty = the real API.\ngateway:\n")
 

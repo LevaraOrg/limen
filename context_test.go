@@ -113,50 +113,6 @@ keychainService: limen-anthropic
 	}
 }
 
-func TestDiscoverFallsBackToLegacyOrcaTree(t *testing.T) {
-	root := t.TempDir()
-	write(t, filepath.Join(root, ".orca", "config.yaml"),
-		"---\nprovider: anthropic\nmodel: claude-opus-4-5\n")
-	write(t, filepath.Join(root, ".orca", "identity.yaml"),
-		"---\nactorId: \"abc-123\"\nname: \"Leo\"\n")
-	nested := filepath.Join(root, "src", "main")
-	if err := os.MkdirAll(nested, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	ctx, ok := Discover(nested)
-	if !ok {
-		t.Fatal("expected a context from a legacy .orca tree")
-	}
-	if ctx.Source != SourceOrca {
-		t.Errorf("Source = %q, want orca", ctx.Source)
-	}
-	// identity.yaml calls the actor `name`.
-	if ctx.Actor != "Leo" {
-		t.Errorf("Actor = %q, want Leo", ctx.Actor)
-	}
-	if ctx.Model != "claude-opus-4-5" {
-		t.Errorf("Model = %q", ctx.Model)
-	}
-	if ctx.Label != filepath.Base(root) {
-		t.Errorf("Label = %q, want the directory name as fallback", ctx.Label)
-	}
-}
-
-func TestDiscoverPrefersLimenOverLegacy(t *testing.T) {
-	root := t.TempDir()
-	write(t, filepath.Join(root, ".orca", "config.yaml"), "model: old-model\n")
-	write(t, filepath.Join(root, ".limen.yaml"), "model: new-model\n")
-
-	ctx, ok := Discover(root)
-	if !ok {
-		t.Fatal("expected a context")
-	}
-	if ctx.Source != SourceLimen || ctx.Model != "new-model" {
-		t.Errorf("got source %q model %q, want limen/new-model", ctx.Source, ctx.Model)
-	}
-}
-
 func TestDiscoverReturnsFalseWithoutContext(t *testing.T) {
 	// t.TempDir() sits under /var/folders, where no .limen.yaml exists above it.
 	if _, ok := Discover(t.TempDir()); ok {

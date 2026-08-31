@@ -3,8 +3,7 @@
 ‹limen› — the threshold. Every `cd` is a crossing; behind it a different
 identity applies. Limen says which, and exports it.
 
-A single Go binary with no dependencies. Replaces `orca env` from the retired
-Orca monolith.
+A single Go binary with no dependencies.
 
 ## Installation
 
@@ -35,7 +34,7 @@ limen backlog   # open notes across all contexts — where something is to be do
 limen ports     # development-endpoint allocation, --caddy/--write feed the proxy
 limen profile   # inherited norms: what applies here, is it current (sync, check, install)
 limen init      # create .limen/limen.yaml
-limen migrate   # lift onto the .limen/ layout (flat .limen.yaml, .orca/), for many projects
+limen migrate   # lift onto the .limen/ layout (flat .limen.yaml), for many projects
 limen hook zsh  # print the shell integration
 ```
 
@@ -364,9 +363,8 @@ Tessera             5173  tessera.localhost                     /Users/…/Tesse
 text-anonymizer     8000  anonymizer.localhost          stream  /Users/…/text-anonymizer
 circlead-platform   8080  circlead.localhost            stream  /Users/…/circlead-platform
 Tessera/api         8081  tessera-api.localhost                 /Users/…/Tessera
-orca                8083  orca.localhost                stream  /Users/…/orca
 
-6 endpoint(s), no conflicts.
+5 endpoint(s), no conflicts.
 ```
 
 `limen ports` **exits 1** when two endpoints claim the same port or the same
@@ -646,20 +644,6 @@ limen.apply(config)
 Existing windows keep the old configuration until `Cmd+Shift+R`
 (Reload Configuration); new windows pick it up immediately.
 
-### Coming from the orca module
-
-Replace the `require` and the `apply` call — installing the limen module does
-not remove the old one, and an untouched config goes on loading it:
-
-```lua
-local orca = require "wezterm-orca"   -- becomes: local limen = require "wezterm-limen"
-orca.apply(config)                    -- becomes: limen.apply(config)
-```
-
-Then delete `~/.config/wezterm/wezterm-orca.lua`. The symptom of skipping this
-is a dimmed `no orca` in the status line — which is the *old* module reporting
-correctly, not the new one failing.
-
 What gets drawn:
 
 | Place | Content |
@@ -675,17 +659,12 @@ key in the file; a resolvable key from the environment or the keychain is not a
 warning.
 
 The colour is looked up exactly first, then by the **longest matching prefix**.
-That is necessary, not convenient: for legacy projects `label` is the directory
+That is necessary, not convenient: `label` often falls back to the directory
 name, so `circlead-platform` rather than `circlead` — without prefix matching
-every project would get the same default violet, which would be worse than the
-predecessor that coloured by circle name. `leviathan` deliberately keeps the
+every such project would get the same default violet instead of its family's
+colour. `leviathan` deliberately keeps the
 default: it shares only "lev" with `levara` and is a different project. Add your
 own entries to `M.palette`.
-
-Migration from the predecessor: `circles[1]` → `label`, `actor_name` → `actor`,
-`!key-in-repo` → `!key-in-config`. `circles` came from the organisational model,
-which went away with Orca; `label` replaces it and falls back to the directory
-name.
 
 The module is tested in **WezTerm's own Lua runtime** — no standalone Lua
 interpreter is needed for it:
@@ -718,43 +697,28 @@ _limen_gh() { [[ -n "$LIMEN_GH_USER" ]] && gh auth switch --user "$LIMEN_GH_USER
 add-zsh-hook chpwd _limen_gh
 ```
 
-## Backwards compatibility
-
-Without a `.limen.yaml`, Limen reads an existing `.orca/identity.yaml` plus
-`.orca/config.yaml` and takes over `name` (as actor), `provider`, `model`,
-`githubUser`, `claudeConfigDir`, `gcloudAccount`, `gcloudProject`. Existing
-projects therefore keep working without a migration step; `limen show` reports
-the origin as `.orca/ (legacy)`. If both files are present, `.limen.yaml` wins.
-
-### Switching over with `limen migrate`
+## Migrating many projects at once
 
 ```bash
 limen migrate --dry-run ~/Documents/GitHub/*/   # only shows
 limen migrate ~/Documents/GitHub/*/             # writes
 ```
 
-An existing `.limen.yaml` is **never** overwritten. What `migrate` does depends
-on what it finds:
-
-| Found | Result |
-|---|---|
-| `.orca/` | every field taken over verbatim, the display stays identical |
-| `.orca/` with `apiKey` | key **not** taken over, a pointer to `limen keychain-import` instead |
-| nothing | only `label` (the directory name), the rest empty |
-
-The key is deliberately not copied along: it would then sit in plaintext in
-*two* files instead of none.
+An existing `.limen/limen.yaml` is **never** overwritten. A flat `.limen.yaml`
+from earlier versions is lifted into `.limen/` with every field kept verbatim;
+a directory without any context gets only `label` (the directory name), the
+rest stays empty.
 
 Nothing is guessed. In particular the owner of the `origin` remote is **not**
-entered as `githubUser`, only offered as a comment. Checked against the five
-projects whose real value was known from `.orca/`, it was wrong in four: the
-remote often belongs to an organisation (`LevaraOrg`), the same person uses
-different accounts per project (`levaraleo`, `tgmatthias`), and for a fork it is
-someone else entirely (`palamim`). A wrong account name in the status line is
-worse than none — telling a work checkout from a private one is this field's
-entire job.
+entered as `githubUser`, only offered as a comment. Checked against five
+projects whose real value was known, it was wrong in four: the remote often
+belongs to an organisation, the same person uses different accounts per
+project, and for a fork it is someone else entirely. A wrong account name in
+the status line is worse than none — telling a work checkout from a private one
+is this field's entire job.
 
-That the switch does not change the display is something you verify yourself:
+That the migration does not change the display is something you verify
+yourself:
 
 ```bash
 for d in ~/Documents/GitHub/*/; do (cd "$d" && printf '%-30s %s\n' "$(basename $d)" "$(limen prompt)"); done > /tmp/before.txt
@@ -763,8 +727,9 @@ limen migrate ~/Documents/GitHub/*/
 diff /tmp/before.txt /tmp/after.txt
 ```
 
-Expected: projects with `.orca/` appear unchanged, projects without a context
-newly show their label. Measured that way on 2026-08-10 across 26 repositories.
+Expected: projects that already had a context appear unchanged, projects
+without one newly show their label. Measured that way on 2026-08-10 across 26
+repositories.
 
 ## Tests
 

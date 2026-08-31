@@ -132,7 +132,7 @@ func CmdRegister(w io.Writer, dirs []string, cwd string) error {
 		}
 		ctx, ok := Discover(abs)
 		if !ok {
-			return fmt.Errorf("no .limen.yaml and no .orca/ above %s", abs)
+			return fmt.Errorf("no .limen/limen.yaml above %s", abs)
 		}
 		added, err := RegisterRoot(ctx.Root)
 		if err != nil {

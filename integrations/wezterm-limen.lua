@@ -6,12 +6,9 @@
 --   - a marker when a plaintext key still sits in the config
 --   - a marker when the project routes through a local gateway
 --
--- Replaces wezterm-orca.lua from the retired Orca CLI. Same rendering, one
--- substantive difference: `orca env json` booted a JVM and cost ~530 ms, so that
--- module cached for 15 seconds and was therefore wrong for up to 15 seconds
--- after every directory change. `limen json` costs about 5 ms, so the cache here
--- exists only to avoid redundant work when WezTerm repaints several times in a
--- row — one second, not fifteen.
+-- `limen json` costs about 5 ms, so the cache here exists only to avoid
+-- redundant work when WezTerm repaints several times in a row — one second,
+-- not longer.
 --
 -- Install: put this file (or a symlink) next to your wezterm.lua, then
 --
@@ -46,7 +43,6 @@ M.palette = {
   nuncio     = '#42a5f5', -- blue
   limen      = '#8d6e63', -- brown
   atrium     = '#ab47bc', -- violet
-  orca       = '#78909c', -- slate, the archive
   isb        = '#ec407a', -- pink
   turbogruen = '#66bb6a', -- green
   cxo        = '#5c6bc0', -- indigo
@@ -58,10 +54,9 @@ M.dim_color = '#6c7086'
 --- Colour for a context, by its label.
 ---
 --- Exact match first, then the longest palette key the label starts with. The
---- prefix step is not a convenience: the predecessor coloured by the Orca
---- *circle* name, while `label` defaults to the directory name — so
---- `circlead-platform` and `levara-website` matched nothing and every project
---- came out the same default purple, which is worse than what it replaced.
+--- prefix step is not a convenience: `label` defaults to the directory name —
+--- so `circlead-platform` and `levara-website` would match nothing and every
+--- project would come out the same default purple.
 --- Longest-first so `limen` cannot win over a hypothetical `limen-extra` entry.
 function M.color_for(ctx)
   local label = (ctx and ctx.label or ''):lower()

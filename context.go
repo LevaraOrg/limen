@@ -8,13 +8,11 @@ import (
 	"strings"
 )
 
-// Source records which file shape the context was read from. A legacy .orca/
-// tree still loads unchanged, so step 1 of the migration breaks nothing.
+// Source records which file shape the context was read from.
 type Source string
 
 const (
 	SourceLimen Source = "limen"
-	SourceOrca  Source = "orca"
 )
 
 // Context is everything Limen knows about the directory it was called in.
@@ -94,16 +92,6 @@ func Discover(dir string) (*Context, bool) {
 			ctx.finish()
 			return ctx, true
 		}
-		orcaCfg := filepath.Join(dir, ".orca", "config.yaml")
-		orcaID := filepath.Join(dir, ".orca", "identity.yaml")
-		if fileExists(orcaCfg) || fileExists(orcaID) {
-			ctx := &Context{Root: dir, Source: SourceOrca}
-			ctx.applyFile(orcaID)
-			ctx.applyFile(orcaCfg)
-			ctx.finish()
-			return ctx, true
-		}
-
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			return nil, false
@@ -186,10 +174,6 @@ func (c *Context) set(key, val string) {
 	case "label":
 		c.Label = val
 	case "actor":
-		if c.Actor == "" {
-			c.Actor = val
-		}
-	case "name": // .orca/identity.yaml calls the actor `name`
 		c.Actor = val
 	case "githubuser":
 		c.GithubUser = val

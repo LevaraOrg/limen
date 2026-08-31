@@ -9,68 +9,7 @@ import (
 	"testing"
 )
 
-func TestMigrateCarriesEveryFieldFromOrca(t *testing.T) {
-	dir := t.TempDir()
-	write(t, filepath.Join(dir, ".orca", "identity.yaml"),
-		"---\nactorId: \"abc\"\nname: \"Matthias\"\ngithubUser: tgmatthias\n")
-	write(t, filepath.Join(dir, ".orca", "config.yaml"),
-		"---\nprovider: anthropic\nmodel: claude-opus-4-5\n"+
-			"claudeConfigDir: ~/.claude-work\ngcloudAccount: a@b.c\ngcloudProject: p-1\n")
-
-	var out bytes.Buffer
-	r := Migrate(&out, dir, false)
-	if r.Action != "written" {
-		t.Fatalf("action = %q, reason %q", r.Action, r.Reason)
-	}
-
-	body, err := os.ReadFile(filepath.Join(dir, ".limen", "limen.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := string(body)
-	for _, want := range []string{
-		"actor: Matthias", "githubUser: tgmatthias", "provider: anthropic",
-		"model: claude-opus-4-5", "gcloudAccount: a@b.c", "gcloudProject: p-1",
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in:\n%s", want, got)
-		}
-	}
-
-	// The migrated file must read back identically to the .orca tree it came
-	// from — otherwise the status line changes at the moment of migration.
-	before, _ := Discover(dir)
-	if before.Source != SourceLimen {
-		t.Fatalf("after migrating, Discover should prefer .limen/, got %q", before.Source)
-	}
-	if before.Actor != "Matthias" || before.GithubUser != "tgmatthias" ||
-		before.Model != "claude-opus-4-5" || before.GcloudProject != "p-1" {
-		t.Errorf("re-read lost fields: %+v", before)
-	}
-	// claudeConfigDir was a tilde path; it must survive as one, not expanded,
-	// or the file becomes machine-specific in a way the original was not.
-	if !strings.Contains(got, "claudeConfigDir: ") {
-		t.Error("claudeConfigDir missing")
-	}
-}
-
-func TestMigrateNeverCopiesAPlaintextKey(t *testing.T) {
-	dir := t.TempDir()
-	write(t, filepath.Join(dir, ".orca", "config.yaml"),
-		"provider: anthropic\napiKey: sk-ant-SECRETVALUE\n")
-
-	var out bytes.Buffer
-	r := Migrate(&out, dir, false)
-	body, _ := os.ReadFile(filepath.Join(dir, ".limen", "limen.yaml"))
-	if strings.Contains(string(body), "SECRETVALUE") {
-		t.Fatal("the key was copied into the new file")
-	}
-	if !strings.Contains(r.Warning, "keychain-import") {
-		t.Errorf("expected a warning pointing at keychain-import, got %q", r.Warning)
-	}
-}
-
-func TestMigrateWithoutOrcaWritesOnlyALabel(t *testing.T) {
+func TestMigrateWithoutASourceWritesOnlyALabel(t *testing.T) {
 	dir := t.TempDir()
 	var out bytes.Buffer
 	if r := Migrate(&out, dir, false); r.Action != "written" {
@@ -212,7 +151,6 @@ func TestMigrateDryRunLiftsNothing(t *testing.T) {
 
 func TestMigrateDryRunWritesNothing(t *testing.T) {
 	dir := t.TempDir()
-	write(t, filepath.Join(dir, ".orca", "config.yaml"), "provider: anthropic\n")
 
 	var out bytes.Buffer
 	r := Migrate(&out, dir, true)
@@ -227,7 +165,6 @@ func TestMigrateDryRunWritesNothing(t *testing.T) {
 func TestMigrateAddsTheGitignoreEntry(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, ".gitignore"), "target/\n")
-	write(t, filepath.Join(dir, ".orca", "config.yaml"), "provider: anthropic\n")
 
 	var out bytes.Buffer
 	Migrate(&out, dir, false)
@@ -278,12 +215,11 @@ func TestMigrateOutsideAGitRepoStillWritesTheFile(t *testing.T) {
 }
 
 func TestCLIMigrateReportsEachDirectoryAndASummary(t *testing.T) {
-	orca := tempDir(t)
-	write(t, filepath.Join(orca, ".orca", "identity.yaml"), "name: Matthias\n")
+	fresh := tempDir(t)
 	already, _ := project(t, "label: done\n")
 	missing := filepath.Join(tempDir(t), "nope")
 
-	r := runLimen(t, tempDir(t), nil, "migrate", orca, already, missing)
+	r := runLimen(t, tempDir(t), nil, "migrate", fresh, already, missing)
 	if r.code != 0 {
 		t.Fatalf("exit %d: %s", r.code, r.stderr)
 	}
@@ -292,20 +228,19 @@ func TestCLIMigrateReportsEachDirectoryAndASummary(t *testing.T) {
 			t.Errorf("migrate output missing %q:\n%s", want, r.stdout)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(orca, ".limen", "limen.yaml")); err != nil {
+	if _, err := os.Stat(filepath.Join(fresh, ".limen", "limen.yaml")); err != nil {
 		t.Error("migrate did not write the descriptor:", err)
 	}
 }
 
 func TestCLIMigrateDryRunAnnouncesButWritesNothing(t *testing.T) {
-	orca := tempDir(t)
-	write(t, filepath.Join(orca, ".orca", "identity.yaml"), "name: Matthias\n")
+	fresh := tempDir(t)
 
-	r := runLimen(t, tempDir(t), nil, "migrate", "--dry-run", orca)
+	r := runLimen(t, tempDir(t), nil, "migrate", "--dry-run", fresh)
 	if r.code != 0 || !strings.Contains(r.stdout, "would be written") {
 		t.Errorf("dry-run: exit %d\n%s", r.code, r.stdout)
 	}
-	if _, err := os.Stat(filepath.Join(orca, ".limen", "limen.yaml")); err == nil {
+	if _, err := os.Stat(filepath.Join(fresh, ".limen", "limen.yaml")); err == nil {
 		t.Error("dry-run wrote the descriptor anyway")
 	}
 }

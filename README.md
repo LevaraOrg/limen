@@ -32,6 +32,7 @@ limen register  # take a context into the registry (the hook does it by itself)
 limen note      # append a dated note to .limen/notes.md, --at <label> from anywhere
 limen backlog   # open notes across all contexts — where something is to be done
 limen ports     # development-endpoint allocation, --caddy/--write feed the proxy
+limen status    # endpoint, start routine and is-it-listening per context; --check exits 1
 limen profile   # inherited norms: what applies here, is it current (sync, check, install)
 limen init      # create .limen/limen.yaml
 limen migrate   # lift onto the .limen/ layout (flat .limen.yaml), for many projects
@@ -80,6 +81,11 @@ gateway: http://localhost:8787
 # reverse-proxy sites. devHost defaults to <label>.localhost.
 devEndpoints: 5173, api=8081
 devHost:
+
+# The start routine is discovered (scripts/start*.sh, package.json, Makefile,
+# a compose file, go.mod, pom.xml, pubspec.yaml). Declare it only when discovery
+# finds several and cannot pick one. limen prints it; it never runs it.
+start:
 
 keychainService: limen-anthropic
 keychainAccount:                 # falls back to actor
@@ -563,6 +569,84 @@ using — the failure mode this exists to prevent.
 Directories that declare nothing stay out of the table. Most trees are not
 services and must not pretend to be.
 
+## Does the declaration still hold? — `limen status`
+
+`ports` checks the declarations against each other. `status` checks them
+against the machine: is the declared port actually listening, and how is the
+thing behind it started?
+
+```
+CONTEXT              ENDPOINT               START                           HEALTH
+circlead-platform     8080  circlead        scripts/start-circlead.sh (+4)  up
+cxo-dashboard         4317  dashboard       scripts/start.sh (+1)           up
+limen                    ·                  go run .                        ·
+orca                  8083  orca            scripts/start.sh                down
+Tessera               5173  tessera         scripts/start-tessera.sh (+2)   down
+Tessera/api           8081  tessera-api     ·                               up
+text-anonymizer       8000  anonymizer      docker compose up               up
+
+8 endpoints · 5 up · 3 down · 20 contexts without a start routine
+```
+
+`up` / `down` is a TCP dial against `127.0.0.1:<port>` with a short timeout —
+the whole extent of the runtime limen looks at. A context with neither an
+endpoint nor a start routine has no row; most registered contexts are document
+repositories, and the count in the last line says more about them than a table
+of crosses would. `--verbose` lists them anyway.
+
+| Flag | Effect |
+|---|---|
+| `--json` | one object per context with `endpoints[].health` and `start` — the shape clavo consumes and adds its session layer to |
+| `--deep` | where `service.yaml` declares `spec.healthcheck.path`, the primary endpoint gets an HTTP GET instead of a dial; anything below 400 is up |
+| `--verbose` | every discovered start candidate per context, and the silent contexts |
+| `--check` | exit 1 when a declared port is not listening, a declared start routine is gone from disk, or an endpoint cannot be read |
+
+The exit code is **0 by default, even with everything down** — a status that
+fails because a dev server is off is a status nobody runs. `--check` is the
+opposite contract, for a pre-commit hook or a watching proxy, and follows the
+precedent of `ports --write` refusing a table limen already knows to be wrong.
+
+### The start routine is discovered, declared only to disambiguate
+
+A hand-maintained `start:` in every descriptor would be a second truth that
+drifts from `package.json` the first time a script is renamed. So the routine is
+read off the files that are there, in this order, first hit wins:
+
+| # | Evidence | Yields |
+|---|---|---|
+| 1 | `service.yaml` → `spec.start` (read if present; whether the key belongs there is an agnostic-stack decision) | as written |
+| 2 | `scripts/start.sh` | `scripts/start.sh` |
+| 3 | `scripts/start-<name>.sh` | that script, one candidate each |
+| 4 | `package.json` → `scripts.dev`, else `start`, else `serve` | `npm run <name>` |
+| 5 | `Makefile` target `run`, else `dev`, else `start` | `make <target>` |
+| 6 | `docker-compose.yml` / `compose.yaml` | `docker compose up` |
+| 7 | `go.mod` / `pom.xml` / `pubspec.yaml` | `go run .` / `mvn spring-boot:run` / `flutter run` |
+
+Every hit is reported, not only the winner, because the count is the finding:
+one hit is an answer, `(+4)` is an ambiguity worth naming. Between three
+`scripts/start-*.sh` discovery cannot and should not guess — that is the one
+case where a declaration earns its place:
+
+```yaml
+# .limen/meta.yaml   — committed, the same for every clone
+start: scripts/start-circlead.sh dev
+
+# .limen/limen.yaml  — machine-local, wins over the committed one
+start: scripts/start-circlead.sh dev --skip-tests
+```
+
+Same two-layer precedence as `devEndpoints`, for the same reason. A declaration
+silences the ambiguity; it does not switch discovery off, and a declared script
+that is no longer on disk shows as `!! … (missing)` — a rename must not fail
+silently. `show`, `json` and `list --json` carry the resolved routine under
+`start`, with every candidate, so an agent can read it without running `status`.
+
+**Limen prints the start command. Limen never runs it.** A tool whose job is to
+describe a directory must not acquire the power to execute what it finds there.
+Which terminals are open, which tmux session belongs to whom, starting and
+stopping — that is clavo's subject, and clavo reads `limen status --json`.
+Limen never calls clavo.
+
 ## `.limen/limen.yaml` does not belong in the repository
 
 The descriptor carries machine-local identity — `githubUser`,
@@ -742,7 +826,7 @@ make cover         # coverage
 make bench         # startup time per call, measured on your machine
 ```
 
-**124 test cases** — unit tests for the parser, resolution and output, plus
+**178 test cases** — unit tests for the parser, resolution and output, plus
 integration tests that run the built binary in real directories. The keychain is
 never touched: the lookup function is injectable, and the CLI tests prove with a
 `PATH=/nonexistent` that `prompt` gets by without `security(1)`.
@@ -767,6 +851,8 @@ meta.go        .limen/meta.yaml — profiles and targets, its own key switch
 profile.go     store, Agent Plugins package, sync/check, the lock
 keychain.go    resolution order, security(1), injectable for tests
 dev.go         devEndpoints/devHost, the allocation table, the Caddyfile
+start.go       the start routine — discovered per rule, declared to disambiguate
+status.go      limen status — the dial, the table, --json/--deep/--verbose/--check
 render.go      show / json / shell / prompt
 commands.go    init, keychain-import, shell hooks
 integrations/

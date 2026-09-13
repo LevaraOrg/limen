@@ -42,6 +42,12 @@ gateway:
 devEndpoints:
 devHost:
 
+# How this tree is started. Discovered — scripts/start*.sh, package.json,
+# Makefile, a compose file, go.mod, pom.xml, pubspec.yaml — so leave it empty
+# unless  limen status  shows several candidates and none is the right one.
+# limen prints it; it never runs it.
+start:
+
 # Keychain instead of plaintext. keychainAccount falls back to actor.
 keychainService: limen-anthropic
 keychainAccount:

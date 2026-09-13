@@ -52,6 +52,7 @@ type jsonView struct {
 	Profiles        []Profile `json:"profiles"`
 	Skills          skillView `json:"skills"`
 	Dev             *Dev      `json:"dev"`
+	Start           *Start    `json:"start"`
 	Service         *Service  `json:"service"`
 	Source          string    `json:"source"`
 	APIKeyPresent   bool      `json:"api_key_present"`
@@ -84,6 +85,7 @@ func RenderJSON(w io.Writer, c *Context, r KeyResolver) error {
 		Profiles:        c.ProfileList(),
 		Skills:          skillView{Active: active, Paused: paused},
 		Dev:             c.DevView(),
+		Start:           c.Start(),
 		Service:         c.Service,
 		Source:          string(c.Source),
 		APIKeyPresent:   present,
@@ -129,6 +131,9 @@ func RenderShow(w io.Writer, c *Context, r KeyResolver) {
 	}
 	for _, bad := range c.DevInvalid() {
 		line("dev", "!! "+bad)
+	}
+	if s := c.Start(); s != nil {
+		line("start", s.Cell())
 	}
 	if c.HasService() {
 		line("service", fmt.Sprintf("%s (%s, %s)", c.Service.Kind, c.Service.APIVersion, c.Service.File))

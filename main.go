@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const version = "0.14.0"
+const version = "0.15.0"
 
 const usage = `limen ` + version + ` — context and identity per directory
 
@@ -31,6 +31,12 @@ const usage = `limen ` + version + ` — context and identity per directory
                         them in a file only when they changed. Exit 1 when two
                         endpoints claim the same port or hostname — and then
                         --write refuses, so a watching proxy never sees it
+  limen status [--json] [--deep] [--verbose] [--check]
+                        one row per context: endpoint, start routine, and
+                        whether the declared port is listening. --deep uses the
+                        healthcheck path from service.yaml, --verbose lists every
+                        discovered start candidate, --check exits 1 when a
+                        declared port is down or a declared start is gone
   limen profile         inherited norms: what applies here, is it current,
                         and which skills are paused (pausedSkills: in meta.yaml)
     … install <source>  fetch an Agent Plugins package (path or git URL)
@@ -65,6 +71,13 @@ is free to use; the machine-local declaration replaces the committed one.
 limen shell exports PORT, LIMEN_DEV_PORT/HOST and LIMEN_DEV_PORT_<NAME> per
 named endpoint, and limen ports --caddy generates the matching Caddy sites, so
 the service and the proxy read the same line.
+
+The start routine is discovered, not declared: service.yaml spec.start,
+scripts/start.sh, scripts/start-<name>.sh, package.json (dev, start, serve),
+Makefile (run, dev, start), a compose file, go.mod, pom.xml, pubspec.yaml — in
+that order, first hit wins, every hit reported. Only where several are found
+does  start:  in meta.yaml (committed) or limen.yaml (machine-local) pick one.
+limen prints the command; it never runs it.
 
 If a service.yaml (agnostic-stack) sits alongside, its kind is read and
 reported in show/json/list — discovered, not duplicated.
@@ -161,6 +174,15 @@ func run(args []string, stdout, stderr *os.File) int {
 
 	case "ports":
 		code, err := CmdPorts(out, args[1:])
+		if err != nil {
+			out.Flush()
+			fmt.Fprintf(stderr, "limen: %v\n", err)
+			return 1
+		}
+		return code
+
+	case "status":
+		code, err := CmdStatus(out, args[1:])
 		if err != nil {
 			out.Flush()
 			fmt.Fprintf(stderr, "limen: %v\n", err)

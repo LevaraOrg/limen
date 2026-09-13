@@ -49,6 +49,10 @@ type Meta struct {
 	DevPort      string
 	DevEndpoints string
 	DevHost      string
+
+	// Start is the committed start routine, declared only where discovery
+	// finds several candidates and cannot pick one — see start.go.
+	Start string
 }
 
 // metaNames are searched in order. The second is the pre-0.4 layout, where the
@@ -96,6 +100,8 @@ func readMeta(root string) *Meta {
 				m.DevEndpoints = val
 			case "devhost":
 				m.DevHost = val
+			case "start":
+				m.Start = val
 			}
 		}
 		f.Close()

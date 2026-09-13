@@ -52,6 +52,10 @@ type Context struct {
 	devEndpoints string
 	devHost      string
 
+	// start is the machine-local half of the start routine; the committed half
+	// sits in meta.yaml. Only ever needed to disambiguate — see start.go.
+	start string
+
 	// flatFile marks the pre-0.4 layout: a single .limen.yaml in the root
 	// instead of the .limen/ directory. Still read so nothing breaks before
 	// `limen migrate` lifts it; notes stay next to it (see NotesFile).
@@ -199,6 +203,8 @@ func (c *Context) set(key, val string) {
 		c.devEndpoints = val
 	case "devhost":
 		c.devHost = val
+	case "start":
+		c.start = val
 	case "keychainservice":
 		c.KeychainService = val
 	case "keychainaccount":

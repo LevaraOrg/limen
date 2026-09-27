@@ -14,7 +14,7 @@ agents.
 
 ## Inherited norms
 
-This directory inherits `levara-baseline@2.0.0` (see `.limen/meta.yaml`). The
+This directory inherits `levara-baseline@3.0.0` (see `.limen/meta.yaml`). The
 skills are materialised in `.claude/skills/`, the reasoning as ADRs in
 `docs/adr/`. In short:
 
@@ -37,6 +37,9 @@ skills are materialised in `.claude/skills/`, the reasoning as ADRs in
 - **ADR-0006** — large projects (services, several deployable modules) build,
   start and smoke-test as containers in CI. limen is a single binary and is not
   large, so this one does not bind here.
+- **ADR-0007** — services work headless: every capability reachable through the
+  public interface without the frontend. limen is a CLI with no frontend, so
+  this one does not bind here either.
 
 `limen profile check` proves the copies are unchanged — exit 1 on drift. Do not
 edit the files under `.claude/skills/` or `docs/adr/` by hand: `limen profile

@@ -2,17 +2,21 @@
   "version": 1,
   "profiles": {
     "levara-baseline": {
-      "version": "1.1.0",
+      "version": "2.0.0",
       "source": "https://github.com/LevaraOrg/levara-baseline",
       "files": {
+        ".claude/skills/levara-containerised/SKILL.md": "sha256:fa876ca87932645d0eef22a1295defd9eb04b7da96b7ab282a1d47f61638cdd4",
         ".claude/skills/levara-covered/SKILL.md": "sha256:37b082d7bc7caa700e04b820f22ee5e44bd2425375e8f794bdc1b9a29aaf15a5",
         ".claude/skills/levara-english/SKILL.md": "sha256:6ee2a868308dadf0a04475bfeadbb00c38633fdce088374cd433bea9779fb021",
+        ".claude/skills/levara-secured/SKILL.md": "sha256:ad824a28fc692af346399bd8da7db3c05966375315fe59752d8f229e04bf46c9",
         ".claude/skills/levara-test-first/SKILL.md": "sha256:91c45e3e61857d1632d49fb81553d522a550568c8dbeb8cce9b0f260b08be082",
         ".claude/skills/levara-token-frugal/SKILL.md": "sha256:dd6052bc2bd68a6ac263dad54c1dc2440647b040058ebb7435180f8659c89e5f",
         "docs/adr/ADR-0001-english-is-the-working-language.md": "sha256:bec9c809015ef48f5c6d51481118bbbcd118b1c91bae38cdf53312da26a9ca92",
         "docs/adr/ADR-0002-test-driven-development.md": "sha256:158852a3f9bd86c7ac11350454ba1106ff350f1e452692171e13728e85bbfb76",
         "docs/adr/ADR-0003-token-frugal-agent-work.md": "sha256:0bd2f19ce87ac09a988a2659653a747800ac51b52caad7b1fa4738e453ccb8a5",
-        "docs/adr/ADR-0004-coverage-floor-and-static-analysis.md": "sha256:1cda4f78f05627a1fa20064ef6d5444cc3bb5428a38f2845e2aacdaae8e4e4fd"
+        "docs/adr/ADR-0004-coverage-floor-and-static-analysis.md": "sha256:1cda4f78f05627a1fa20064ef6d5444cc3bb5428a38f2845e2aacdaae8e4e4fd",
+        "docs/adr/ADR-0005-security-gates-and-red-teaming.md": "sha256:4eb8761f9fdafe6f9e89c0e08b8b51100b479eb831b2c3025fde1f9e38a6fabe",
+        "docs/adr/ADR-0006-large-projects-ship-as-containers.md": "sha256:f3fce85915c1db677b0eac7ab0526c70cd66b0ecc89dd7b85b3f0169dbd0ad6e"
       }
     }
   }
